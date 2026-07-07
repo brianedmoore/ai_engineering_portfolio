@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
 
 class ObservationStatus(str, Enum):
@@ -59,3 +61,17 @@ class EstimatedCostRange(str, Enum):
     SEVEN_FIFTY_TO_2500 = "$750–$2,500"
     OVER_2500 = "$2,500+"
     UNKNOWN = "Unknown"
+
+class ObservationInput(BaseModel):
+    text_description: Optional[str] = Field(
+        default=None,
+        description="Typed field note provided by the inspector."
+    )
+    audio_transcript: Optional[str] = Field(
+        default=None,
+        description="Transcript from inspector audio narration."
+    )
+    photo_ids: List[str] = Field(
+        default_factory=list,
+        description="One or more photo references used as evidence for the observation."
+    )
