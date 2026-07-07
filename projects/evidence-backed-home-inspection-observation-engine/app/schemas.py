@@ -75,6 +75,7 @@ class ObservationInput(BaseModel):
         default_factory=list,
         description="One or more photo references used as evidence for the observation."
     )
+    
     @property
     def is_complete(self) -> bool:
         has_photo = len(self.photo_ids) > 0
@@ -82,3 +83,16 @@ class ObservationInput(BaseModel):
         has_audio = bool(self.audio_transcript and self.audio_transcript.strip())
 
         return has_photo and (has_text or has_audio)
+    
+    @property
+    def source_input_type(self) -> SourceInputType:
+        has_text = bool(self.text_description and self.text_description.strip())
+        has_audio = bool(self.audio_transcript and self.audio_transcript.strip())
+
+        if has_text and has_audio:
+            return SourceInputType.TEXT_AND_AUDIO
+        if has_text:
+            return SourceInputType.TEXT
+        if has_audio:
+            return SourceInputType.AUDIO
+        return SourceInputType.MISSING
