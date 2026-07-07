@@ -96,3 +96,18 @@ class ObservationInput(BaseModel):
         if has_audio:
             return SourceInputType.AUDIO
         return SourceInputType.MISSING
+    
+    @property
+    def missing_information(self) -> List[str]:
+        missing = []
+
+        if len(self.photo_ids) == 0:
+            missing.append("At least one photo is required.")
+
+        has_text = bool(self.text_description and self.text_description.strip())
+        has_audio = bool(self.audio_transcript and self.audio_transcript.strip())
+
+        if not has_text and not has_audio:
+            missing.append("A typed description or audio transcript is required.")
+
+        return missing
