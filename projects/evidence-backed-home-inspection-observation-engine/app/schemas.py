@@ -111,3 +111,24 @@ class ObservationInput(BaseModel):
             missing.append("A typed description or audio transcript is required.")
 
         return missing
+    
+class StructuredObservation(BaseModel):
+    observation_id: str
+    status: ObservationStatus
+    title: str
+    room_or_area: str
+    system: HomeSystem
+    component: str
+    defect_type: str
+    severity: Severity
+    safety_related: bool
+    professional_report_description: str
+    plain_english_summary: str
+    recommended_action: str
+    responsible_professional: ResponsibleProfessional
+    estimated_cost_range: EstimatedCostRange
+    photo_ids: List[str]
+    source_input_type: SourceInputType
+    confidence: float = Field(ge=0, le=1)
+    needs_human_review: bool = True
+    missing_information: List[str] = Field(default_factory=list)
