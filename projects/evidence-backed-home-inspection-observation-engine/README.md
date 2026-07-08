@@ -89,6 +89,28 @@ This project demonstrates practical AI engineering for a real-world field workfl
 - AI reliability and guardrail design
 - Business process automation
 
+## Current Project Structure
+
+evidence-backed-home-inspection-observation-engine/
+  app/
+    __init__.py
+    schemas.py
+    workflow_status.py
+    load_sample_observations.py
+  data/
+    sample_observations.jsonl
+  docs/
+    product_brief.md
+    workflow.md
+    schema_notes.md
+  tests/
+    __init__.py
+    test_observation_input.py
+    test_workflow_status.py
+    test_load_sample_observations.py
+  requirements.txt
+  README.md
+
 ##Status
 
 Project definition and schema design phase.
