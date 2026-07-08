@@ -48,3 +48,14 @@ def test_blank_text_with_photo_is_incomplete():
     assert observation.is_complete is False
     assert observation.source_input_type == SourceInputType.MISSING
     assert observation.missing_information == ["A typed description or audio transcript is required."]
+
+def test_text_and_audio_is_complete():
+    observation = ObservationInput(
+        text_description="active leak under kitchen sink",
+        audio_transcript="cabinet base is wet and there is a drip at the p trap",
+        photo_ids=["kitchen_sink_001.jpg"]
+    )
+
+    assert observation.is_complete is True
+    assert observation.source_input_type == SourceInputType.TEXT_AND_AUDIO
+    assert observation.missing_information == []
