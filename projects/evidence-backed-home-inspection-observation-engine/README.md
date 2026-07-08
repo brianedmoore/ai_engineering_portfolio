@@ -92,3 +92,17 @@ This project demonstrates practical AI engineering for a real-world field workfl
 ##Status
 
 Project definition and schema design phase.
+
+## Running Tests
+
+From this project folder, install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Then run:
+
+```bash
+pytest
+```
