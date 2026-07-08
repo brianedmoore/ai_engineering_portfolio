@@ -29,3 +29,12 @@ def test_text_only_is_incomplete_without_photo():
     assert observation.is_complete is False
     assert observation.source_input_type == SourceInputType.TEXT
     assert observation.missing_information == ["At least one photo is required."]
+
+def test_photo_only_is_incomplete_without_description():
+    observation = ObservationInput(
+        photo_ids=["kitchen_sink_001.jpg"]
+    )
+
+    assert observation.is_complete is False
+    assert observation.source_input_type == SourceInputType.MISSING
+    assert observation.missing_information == ["A typed description or audio transcript is required."]
