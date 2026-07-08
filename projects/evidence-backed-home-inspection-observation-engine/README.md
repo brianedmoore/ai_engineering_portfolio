@@ -112,7 +112,7 @@ evidence-backed-home-inspection-observation-engine/
   README.md
 ```
 
-##Status
+## Status
 
 Project definition and schema design phase.
 
