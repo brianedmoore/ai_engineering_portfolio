@@ -112,6 +112,22 @@ evidence-backed-home-inspection-observation-engine/
   README.md
 ```
 
+## Running the Demo
+
+From this project folder, install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+Run the demo script:
+```bash
+python run_demo.py
+```
+
+1. The demo loads sample observations from:
+ - data/sample_observations.jsonl
+2. Then converts each input into a basic structured observation.
+
 ## Status
 
 Project definition and schema design phase.
