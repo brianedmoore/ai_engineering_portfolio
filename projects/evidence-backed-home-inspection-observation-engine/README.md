@@ -90,7 +90,7 @@ This project demonstrates practical AI engineering for a real-world field workfl
 - Business process automation
 
 ## Current Project Structure
-
+```text
 evidence-backed-home-inspection-observation-engine/
   app/
     __init__.py
@@ -110,6 +110,7 @@ evidence-backed-home-inspection-observation-engine/
     test_load_sample_observations.py
   requirements.txt
   README.md
+```
 
 ##Status
 
