@@ -10,3 +10,13 @@ def test_photo_and_text_is_complete():
     assert observation.is_complete is True
     assert observation.source_input_type == SourceInputType.TEXT
     assert observation.missing_information == []
+
+def test_photo_and_audio_is_complete():
+    observation = ObservationInput(
+        audio_transcript="damaged exterior trim near rear window",
+        photo_ids=["rear_trim_001.jpg"]
+    )
+
+    assert observation.is_complete is True
+    assert observation.source_input_type == SourceInputType.AUDIO
+    assert observation.missing_information == []
