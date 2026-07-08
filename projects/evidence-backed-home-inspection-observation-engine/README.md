@@ -1,6 +1,6 @@
 # Evidence-Backed Home Inspection Observation Engine
 
-This project is a production-style AI workflow for converting unordered home inspection dield inputs into a structured, professional inspection observation.
+This project is a production-style AI workflow for converting unordered home inspection field inputs into a structured, professional inspection observation.
 
 The core problem: home inspectors often document findings in the field by taking photos, typing quick notes, or recording audio. These inputs may happen in any order, but a reportable observation should include both visual evidence (photo) and a written description (text input or audio transcription).
 
