@@ -116,7 +116,7 @@ evidence-backed-home-inspection-observation-engine/
 
 From this project folder, install dependencies:
 ```bash
-pip install -r requirements.txt
+pip install -r "requirements.txt"
 ```
 
 Run the demo script:
