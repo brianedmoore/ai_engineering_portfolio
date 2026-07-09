@@ -20,18 +20,22 @@ def build_observation_prompt(observation_input) -> str:
 
     return f"""{input_text}
 
-            Based on the above, extract the following fields:
-            - title: short descriptive title of the defect
-            - room_or_area: location in the home
-            - system: home system affected (e.g. Plumbing, Electrical, Roofing)
-            - component: specific component (e.g. P-trap, outlet, fascia board)
-            - defect_type: what is wrong (e.g. active leak, missing cover plate)
-            - severity: Low, Medium, or High
-            - safety_related: true or false
-            - professional_report_description: formal language suitable for a written report
-            - plain_english_summary: simple explanation for a homeowner
-            - recommended_action: what should be done
-            - responsible_professional: who should fix it
-            - estimated_cost_range: estimated repair cost range
-            - confidence: your confidence score from 0.0 to 1.0
-            """
+Based on the above, return a JSON object with exactly these fields:
+{{
+  "title": "short descriptive title of the defect",
+  "room_or_area": "location in the home",
+  "system": "one of: Roofing, Structural, Electrical, Plumbing, HVAC, Insulation, Exterior, Interior, Appliances, Site, Other",
+  "component": "specific component (e.g. P-trap, outlet, fascia board)",
+  "defect_type": "what is wrong (e.g. active leak, missing cover plate)",
+  "severity": "one of: Low, Medium, High",
+  "safety_related": true or false,
+  "professional_report_description": "formal language suitable for a written report",
+  "plain_english_summary": "simple explan
+  "recommended_action": "what should be done",
+  "responsible_professional": "who should
+  "estimated_cost_range": "one of: Under $100, $100-$300, $300-$750, $750-$2000, $2000-$5000, Over $5000,
+Unknown",
+  "confidence": 0.0 to 1.0
+}}
+Return only the JSON object. No explanation, no markdown, no code fences.
+"""
