@@ -8,7 +8,7 @@ def build_observation_prompt(observation_input) -> str:
     parts = []
 
     if observation_input.text_description:
-        parts.append(f"Field notes: {observation_input.text_note}")
+        parts.append(f"Field notes: {observation_input.text_description}")
 
     if observation_input.audio_transcript:
         parts.append(f"Audio transcript: {observation_input.audio_transcript}")
@@ -30,9 +30,9 @@ Based on the above, return a JSON object with exactly these fields:
   "severity": "one of: Low, Medium, High",
   "safety_related": true or false,
   "professional_report_description": "formal language suitable for a written report",
-  "plain_english_summary": "simple explan
+  "plain_english_summary": "simple explanation for a homeowner",
   "recommended_action": "what should be done",
-  "responsible_professional": "who should
+  "responsible_professional": "who should fix it",
   "estimated_cost_range": "one of: $0-$100, $100-$300, $300-$750, $750-$2,500, $2,500+, Unknown",
   "confidence": 0.0 to 1.0
 }}
