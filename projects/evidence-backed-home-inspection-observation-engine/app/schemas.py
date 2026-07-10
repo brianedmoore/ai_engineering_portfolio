@@ -55,10 +55,10 @@ class ResponsibleProfessional(str, Enum):
 
 
 class EstimatedCostRange(str, Enum):
-    ZERO_TO_100 = "$0–$100"
-    ONE_HUNDRED_TO_300 = "$100–$300"
-    THREE_HUNDRED_TO_750 = "$300–$750"
-    SEVEN_FIFTY_TO_2500 = "$750–$2,500"
+    ZERO_TO_100 = "$0-$100"
+    ONE_HUNDRED_TO_300 = "$100-$300"
+    THREE_HUNDRED_TO_750 = "$300-$750"
+    SEVEN_FIFTY_TO_2500 = "$750-$2,500"
     OVER_2500 = "$2,500+"
     UNKNOWN = "Unknown"
 
