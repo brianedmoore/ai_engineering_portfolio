@@ -112,6 +112,23 @@ class ObservationInput(BaseModel):
 
         return missing
     
+class LLMObservationOutput(BaseModel):
+    """Fields the LLM classifies. Used to enforce structured output via SDK tool use / json_schema mode."""
+    title: str
+    room_or_area: str
+    system: HomeSystem
+    component: str
+    defect_type: str
+    severity: Severity
+    safety_related: bool
+    professional_report_description: str
+    plain_english_summary: str
+    recommended_action: str
+    responsible_professional: ResponsibleProfessional
+    estimated_cost_range: EstimatedCostRange
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
 class StructuredObservation(BaseModel):
     observation_id: str
     status: ObservationStatus

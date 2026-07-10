@@ -1,7 +1,6 @@
 import json
 from app.schemas import (
-    ObservationInput, StructuredObservation, ObservationStatus,
-    Severity, HomeSystem, ResponsibleProfessional, EstimatedCostRange
+    ObservationInput, StructuredObservation, ObservationStatus, LLMObservationOutput
 )
 from app.workflow_status import determine_observation_status
 from app.llm_client import get_client, get_llm_provider
@@ -22,43 +21,59 @@ def create_basic_structured_observation(observation_id: str, observation_input: 
     prompt = build_observation_prompt(observation_input)
     client = get_client()
     provider = get_llm_provider()
+    schema = LLMObservationOutput.model_json_schema()
 
     if provider == "anthropic":
         response = client.messages.create(
             model="claude-sonnet-5",
             max_tokens=1024,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            tools=[{
+                "name": "submit_observation",
+                "description": "Submit the structured observation classification.",
+                "input_schema": schema
+            }],
+            tool_choice={"type": "tool", "name": "submit_observation"}
         )
-        raw = response.content[0].text
+        data = response.content[0].input
+
     elif provider == "openai":
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
-            ]
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "LLMObservationOutput",
+                    "schema": schema,
+                    "strict": False
+                }
+            }
         )
-        raw = response.choices[0].message.content
+        data = json.loads(response.choices[0].message.content)
 
-    data = json.loads(raw)
+    result = LLMObservationOutput(**data)
 
     return StructuredObservation(
         observation_id=observation_id,
         status=ObservationStatus.READY_FOR_REVIEW,
-        title=data["title"],
-        room_or_area=data["room_or_area"],
-        system=HomeSystem(data["system"]),
-        component=data["component"],
-        defect_type=data["defect_type"],
-        severity=Severity(data["severity"]),
-        safety_related=data["safety_related"],
-        professional_report_description=data["professional_report_description"],
-        plain_english_summary=data["plain_english_summary"],
-        recommended_action=data["recommended_action"],
-        responsible_professional=ResponsibleProfessional(data["responsible_professional"]),
-        estimated_cost_range=EstimatedCostRange(data["estimated_cost_range"]),
-        confidence=data["confidence"],
+        title=result.title,
+        room_or_area=result.room_or_area,
+        system=result.system,
+        component=result.component,
+        defect_type=result.defect_type,
+        severity=result.severity,
+        safety_related=result.safety_related,
+        professional_report_description=result.professional_report_description,
+        plain_english_summary=result.plain_english_summary,
+        recommended_action=result.recommended_action,
+        responsible_professional=result.responsible_professional,
+        estimated_cost_range=result.estimated_cost_range,
+        confidence=result.confidence,
         missing_information=[],
         photo_ids=observation_input.photo_ids,
         source_input_type=observation_input.source_input_type
