@@ -32,7 +32,7 @@ Based on the above, return a JSON object with exactly these fields:
   "professional_report_description": "formal language suitable for a written report",
   "plain_english_summary": "simple explanation for a homeowner",
   "recommended_action": "what should be done",
-  "responsible_professional": "who should fix it",
+  "responsible_professional": "one of: Homeowner/DIY, Handyman, Plumber, Electrician, HVAC Technician, Roofer, Structural Engineer, Foundation Contractor, General Contractor, Appliance Technician, Pest Control Professional, Mold/Water Mitigation Professional, Qualified Specialist, Further Evaluation Recommended",
   "estimated_cost_range": "one of: $0-$100, $100-$300, $300-$750, $750-$2,500, $2,500+, Unknown",
   "confidence": 0.0 to 1.0
 }}
