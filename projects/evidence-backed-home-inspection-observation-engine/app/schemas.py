@@ -115,20 +115,20 @@ class ObservationInput(BaseModel):
 class StructuredObservation(BaseModel):
     observation_id: str
     status: ObservationStatus
-    title: str
-    room_or_area: str
-    system: HomeSystem
-    component: str
-    defect_type: str
-    severity: Severity
-    safety_related: bool
-    professional_report_description: str
-    plain_english_summary: str
-    recommended_action: str
-    responsible_professional: ResponsibleProfessional
-    estimated_cost_range: EstimatedCostRange
-    photo_ids: List[str]
-    source_input_type: SourceInputType
-    confidence: float = Field(ge=0, le=1)
+    title: Optional[str] = None
+    room_or_area: Optional[str] = None
+    system: Optional[HomeSystem] = None
+    component: Optional[str] = None
+    defect_type: Optional[str] = None
+    severity: Optional[Severity] = None
+    safety_related: Optional[bool] = None
+    professional_report_description: Optional[str] = None
+    plain_english_summary: Optional[str]
+    recommended_action: Optional[str] = None
+    responsible_professional: Optional[ResponsibleProfessional] = None
+    estimated_cost_range: Optional[EstimatedCostRange] = None
+    photo_ids: List[str] = Field(default_factory=list)
+    source_input_type: Optional[SourceInputType] = None
+    confidence: float = Field(default=0.0, ge=0 ,le=1)
     needs_human_review: bool = True
     missing_information: List[str] = Field(default_factory=list)
