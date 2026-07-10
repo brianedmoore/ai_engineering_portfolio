@@ -123,7 +123,7 @@ class StructuredObservation(BaseModel):
     severity: Optional[Severity] = None
     safety_related: Optional[bool] = None
     professional_report_description: Optional[str] = None
-    plain_english_summary: Optional[str]
+    plain_english_summary: Optional[str] = None
     recommended_action: Optional[str] = None
     responsible_professional: Optional[ResponsibleProfessional] = None
     estimated_cost_range: Optional[EstimatedCostRange] = None
