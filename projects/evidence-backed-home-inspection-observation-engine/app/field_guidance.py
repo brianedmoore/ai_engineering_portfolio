@@ -224,15 +224,18 @@ FIELD_GUIDANCE = {
         ],
         "criteria": [
             "Match the professional to the specific defect, not just the system",
+            "Use Handyman for straightforward carpentry, minor repairs, and cosmetic fixes that do not require a licensed trade",
+            "Use General Contractor for larger scope work involving multiple trades or significant structural repair",
             "Use Further Evaluation Recommended when the root cause is unclear",
             "Use Qualified Specialist when a licensed trade is needed but the specific trade is ambiguous"
         ],
         "examples": [],
         "negative_examples": [
+            "General Contractor for damaged exterior trim boards — straightforward carpentry is a Handyman job, not a General Contractor",
             "General Contractor for a clearly electrical defect — use Electrician when the trade is unambiguous",
             "Qualified Specialist for a leaking P-trap — the trade is clearly Plumber; reserve Qualified Specialist for ambiguous cases"
         ],
-        "note": "A missing cover plate is Homeowner/DIY or Handyman. Active water damage may need both a Plumber and a Mold/Water Mitigation Professional."
+        "note": "A missing cover plate is Homeowner/DIY. Active water damage may need both a Plumber and a Mold/Water Mitigation Professional."
     },
     "estimated_cost_range": {
         "description": "Estimated repair cost range for this defect.",
