@@ -7,7 +7,7 @@ Be precise and conservative — only populate fields you have clear evidence for
 def build_observation_prompt(observation_input) -> str:
     parts = []
 
-    if observation_input.text_note:
+    if observation_input.text_description:
         parts.append(f"Field notes: {observation_input.text_note}")
 
     if observation_input.audio_transcript:
