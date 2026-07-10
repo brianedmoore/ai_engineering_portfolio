@@ -24,7 +24,7 @@ Based on the above, return a JSON object with exactly these fields:
 {{
   "title": "short descriptive title of the defect",
   "room_or_area": "location in the home",
-  "system": "one of: Roofing, Structural, Electrical, Plumbing, HVAC, Insulation, Exterior, Interior, Appliances, Site, Other",
+  "system": "one of: Roofing, Exterior, Structure, Electrical, Plumbing, HVAC, Interior, Insulation and Ventilation, Appliances, Site and Grounds, Garage, Other",
   "component": "specific component (e.g. P-trap, outlet, fascia board)",
   "defect_type": "what is wrong (e.g. active leak, missing cover plate)",
   "severity": "one of: Low, Medium, High",
@@ -33,8 +33,7 @@ Based on the above, return a JSON object with exactly these fields:
   "plain_english_summary": "simple explan
   "recommended_action": "what should be done",
   "responsible_professional": "who should
-  "estimated_cost_range": "one of: Under $100, $100-$300, $300-$750, $750-$2000, $2000-$5000, Over $5000,
-Unknown",
+  "estimated_cost_range": "one of: $0-$100, $100-$300, $300-$750, $750-$2,500, $2,500+, Unknown",
   "confidence": 0.0 to 1.0
 }}
 Return only the JSON object. No explanation, no markdown, no code fences.
