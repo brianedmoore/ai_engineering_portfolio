@@ -59,5 +59,7 @@ def create_basic_structured_observation(observation_id: str, observation_input: 
         responsible_professional=ResponsibleProfessional(data["responsible_professional"]),
         estimated_cost_range=EstimatedCostRange(data["estimated_cost_range"]),
         confidence=data["confidence"],
-        missing_information=[]
+        missing_information=[],
+        photo_ids=observation_input.photo_ids,
+        source_input_type=observation_input.source_input_type
     )
