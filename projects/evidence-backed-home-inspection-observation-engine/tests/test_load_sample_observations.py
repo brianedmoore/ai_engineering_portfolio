@@ -10,13 +10,18 @@ def test_load_sample_observations_returns_observation_inputs():
 
     observations = load_sample_observations(str(sample_file))
 
-    assert len(observations) == 3
+    assert len(observations) == 4
     assert all(isinstance(observation, ObservationInput) for observation in observations)
 
-def test_loaded_sample_observations_are_complete():
+def test_sample_observations_include_complete_and_incomplete():
     project_root = Path(__file__).resolve().parents[1]
     sample_file = project_root / "data" / "sample_observations.jsonl"
 
     observations = load_sample_observations(str(sample_file))
 
-    assert all(observation.is_complete for observation in observations)
+    complete = [o for o in observations if o.is_complete]
+    incomplete = [o for o in observations if not o.is_complete]
+
+    assert len(complete) == 3
+    assert len(incomplete) == 1
+    assert incomplete[0].missing_information == ["At least one photo is required."]
