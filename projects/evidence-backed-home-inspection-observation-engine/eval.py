@@ -25,6 +25,9 @@ def run_eval():
 
     for i, obs_input in enumerate(observations):
         observation_id = f"obs_{i+1:03}"
+        if not obs_input.is_complete:
+            print(f"Observation: {observation_id} — SKIPPED (incomplete input: {obs_input.missing_information})")
+            continue
         result = create_basic_structured_observation(observation_id, obs_input)
         expected = expected_by_id.get(observation_id, {})
 
