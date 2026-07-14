@@ -1,0 +1,631 @@
+{
+  "timestamp": "2026-07-14T18:08:01.721273",
+  "change_note": "expanded to 14 observations covering all HomeSystem and Severity enum values",
+  "enum_score": {
+    "correct": 51,
+    "total": 70,
+    "pct": 72.9
+  },
+  "judge_score": {
+    "average": 3.88,
+    "total_fields": 42
+  },
+  "observations": [
+    {
+      "observation_id": "obs_001",
+      "fields": {
+        "system": {
+          "actual": "Plumbing",
+          "expected": "Plumbing",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": false,
+          "match": false
+        },
+        "responsible_professional": {
+          "actual": "Plumber",
+          "expected": "Plumber",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$100-$300",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation in wording."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation, though it lacks the urgency for quick repairs and the specific details about the P-trap and potential water damage."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation but omits the specific mention of the P-trap connection."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_002",
+      "fields": {
+        "system": {
+          "actual": "Exterior",
+          "expected": "Exterior",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Handyman",
+          "expected": "Handyman",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$300-$750",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 3,
+          "reason": "The actual output is mostly correct but lacks details about moisture intrusion and the need for repair."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information regarding damaged boards and the need for repairs, but it places more emphasis on maintenance and appearance rather than the risk of water damage."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures key actions and intent but omits the inspection for underlying moisture damage and the detail about caulking."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_003",
+      "fields": {
+        "system": {
+          "actual": "Electrical",
+          "expected": "Electrical",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Electrician",
+          "expected": "Homeowner/DIY",
+          "match": false
+        },
+        "estimated_cost_range": {
+          "actual": "$0-$100",
+          "expected": "$0-$100",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the missing cover plate and the hazard, but lacks the urgency and specificity of 'immediate correction' mentioned in the expected text."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the missing cover plate and exposed wiring, but it omits the mention of the potential for shock and the ease and low cost of repair."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_005",
+      "fields": {
+        "system": {
+          "actual": "Roofing",
+          "expected": "Roofing",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Roofer",
+          "expected": "Roofer",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$300-$750",
+          "expected": "$300-$750",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 3,
+          "reason": "The actual output captures most of the key information but omits the crucial detail about the exposed underlayment and the potential consequences of moisture intrusion."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key information and intent of the recommended action but omits specific mention of inspecting the attic for moisture intrusion or damage."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_006",
+      "fields": {
+        "system": {
+          "actual": "HVAC",
+          "expected": "HVAC",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "Medium",
+          "match": false
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "HVAC Technician",
+          "expected": "HVAC Technician",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$100-$300",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the clog and pooling water but misses the potential consequences of overflow and mold growth."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key information accurately but uses slightly different wording."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_007",
+      "fields": {
+        "system": {
+          "actual": "Plumbing",
+          "expected": "Interior",
+          "match": false
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Plumber",
+          "expected": "Further Evaluation Recommended",
+          "match": false
+        },
+        "estimated_cost_range": {
+          "actual": "Unknown",
+          "expected": "$300-$750",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures key information but omits the detail about the need to identify the origin of the leak before repairs."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the water stain's location and condition, though it does not explicitly mention the need to find the source before patching."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key actions needed and is semantically close to the expected, but it does not explicitly mention patching and repainting the ceiling drywall."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_008",
+      "fields": {
+        "system": {
+          "actual": "Electrical",
+          "expected": "Electrical",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Electrician",
+          "expected": "Electrician",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$300-$750",
+          "expected": "$100-$300",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key information but lacks the mention of the potential fire hazard and non-compliance with standard practices."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation."
+        },
+        "recommended_action": {
+          "score": 3,
+          "reason": "The actual output is mostly correct but lacks the specificity of using a tandem breaker or adding a subpanel as appropriate."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_009",
+      "fields": {
+        "system": {
+          "actual": "Structure",
+          "expected": "Structure",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Structural Engineer",
+          "expected": "Structural Engineer",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "Unknown",
+          "expected": "$2,500+",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the crack's location and length, but it omits the implications regarding structural compromise and the need for evaluation by a structural engineer."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information but lacks the specific mention of a 'long' crack and the precise emphasis on the potential for 'serious structural stress' as noted in the expected summary."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation in wording but maintains the essence of the recommendation."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_010",
+      "fields": {
+        "system": {
+          "actual": "Appliances",
+          "expected": "Appliances",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Appliance Technician",
+          "expected": "Appliance Technician",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$300-$750",
+          "expected": "$100-$300",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 2,
+          "reason": "The actual output correctly notes the standing water but fails to mention the potential causes of the issue."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation."
+        },
+        "recommended_action": {
+          "score": 3,
+          "reason": "The actual output is mostly correct and addresses the problem, but it lacks the specific action of checking the drain filter for debris."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_011",
+      "fields": {
+        "system": {
+          "actual": "Site and Grounds",
+          "expected": "Site and Grounds",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Qualified Specialist",
+          "expected": "General Contractor",
+          "match": false
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$750-$2,500",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output accurately captures key information about the soil grading and its potential impact on the foundation, but lacks the specific detail about the recommended grading slope."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation in wording and phrasing."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key actions but uses slightly different wording and omits the instruction to inspect the crawl space for moisture after regrading."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_012",
+      "fields": {
+        "system": {
+          "actual": "Insulation and Ventilation",
+          "expected": "Insulation and Ventilation",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Low",
+          "match": false
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Handyman",
+          "expected": "Homeowner/DIY",
+          "match": false
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$0-$100",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures key information but lacks the detail about the impact on energy efficiency."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the lack of insulation and the implications for energy efficiency, but it slightly alters the phrasing."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key recommendation but lacks specifics about DIY construction options and materials."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_013",
+      "fields": {
+        "system": {
+          "actual": "Garage",
+          "expected": "Garage",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Qualified Specialist",
+          "expected": "Qualified Specialist",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$100-$300",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 5,
+          "reason": "The actual output accurately conveys the same key information about the garage door opener's failure to auto-reverse and the associated safety risk."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures key information about the safety risk but uses different phrasing and omits specific mention of children or pets."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key points about repairing or replacing the garage door opener and restoring the auto-reverse feature, but slightly varies in wording and lacks the specific mention of adjustment before replacement."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_014",
+      "fields": {
+        "system": {
+          "actual": "Insulation and Ventilation",
+          "expected": "Structure",
+          "match": false
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Mold/Water Mitigation Professional",
+          "expected": "Mold/Water Mitigation Professional",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "Unknown",
+          "expected": "$2,500+",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key observations and concerns but lacks emphasis on the need for professional remediation."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures key information about mold presence and health concerns but lacks details on the strong musty smell and the need for professional removal."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures key information and suggested actions but varies slightly in wording and emphasis on ventilation."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_015",
+      "fields": {
+        "system": {
+          "actual": "Structure",
+          "expected": "Structure",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": false,
+          "match": false
+        },
+        "responsible_professional": {
+          "actual": "Pest Control Professional",
+          "expected": "Pest Control Professional",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "Unknown",
+          "expected": "$750-$2,500",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures key information about the mud tubes and their association with subterranean termite activity but omits the recommendation for evaluation by a licensed pest control professional."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information about termite activity and the need for prompt action, but it lacks the explicit mention of serious structural damage over time."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation in wording and structure."
+        }
+      }
+    }
+  ]
+}
