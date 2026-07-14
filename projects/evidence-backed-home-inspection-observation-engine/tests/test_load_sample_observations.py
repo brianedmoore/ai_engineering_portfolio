@@ -10,7 +10,7 @@ def test_load_sample_observations_returns_observation_inputs():
 
     observations = load_sample_observations(str(sample_file))
 
-    assert len(observations) == 4
+    assert len(observations) == 15
     assert all(isinstance(observation, ObservationInput) for observation in observations)
 
 def test_sample_observations_include_complete_and_incomplete():
@@ -22,6 +22,6 @@ def test_sample_observations_include_complete_and_incomplete():
     complete = [o for o in observations if o.is_complete]
     incomplete = [o for o in observations if not o.is_complete]
 
-    assert len(complete) == 3
+    assert len(complete) == 14
     assert len(incomplete) == 1
     assert incomplete[0].missing_information == ["At least one photo is required."]
