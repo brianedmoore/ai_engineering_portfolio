@@ -1,0 +1,147 @@
+{
+  "timestamp": "2026-07-13T21:10:20.112623",
+  "change_note": "baseline before recommended_action prompt tuning",
+  "enum_score": {
+    "correct": 13,
+    "total": 15,
+    "pct": 86.7
+  },
+  "judge_score": {
+    "average": 3.67,
+    "total_fields": 9
+  },
+  "observations": [
+    {
+      "observation_id": "obs_001",
+      "fields": {
+        "system": {
+          "actual": "Plumbing",
+          "expected": "Plumbing",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": false,
+          "match": false
+        },
+        "responsible_professional": {
+          "actual": "Plumber",
+          "expected": "Plumber",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$100-$300",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the leak and moisture but lacks the urgency of recommending immediate repair to prevent further damage."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the leak and the need for a plumber, but it omits the urgency regarding potential water damage."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key action of involving a licensed plumber and addresses the leak, but it omits the recommendation to check for water damage after the repair."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_002",
+      "fields": {
+        "system": {
+          "actual": "Exterior",
+          "expected": "Exterior",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Handyman",
+          "expected": "Handyman",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$300-$750",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 3,
+          "reason": "The actual output is mostly correct but lacks important details about moisture intrusion and the need for repair to maintain the building's integrity."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures key information but omits the detail about potential water ingress and its subsequent consequences."
+        },
+        "recommended_action": {
+          "score": 3,
+          "reason": "The actual output captures the main action of engaging a handyman but omits critical details about inspecting for moisture damage and ensuring proper caulking and sealing."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_003",
+      "fields": {
+        "system": {
+          "actual": "Electrical",
+          "expected": "Electrical",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Homeowner/DIY",
+          "expected": "Homeowner/DIY",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$0-$100",
+          "expected": "$0-$100",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures key information about the missing cover plate and the exposed wiring but lacks the explicit mention of the potential shock and fire hazard and the urgency for correction."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information and conveys the safety concern, though it lacks the mention of the fix being easy and inexpensive."
+        },
+        "recommended_action": {
+          "score": 3,
+          "reason": "The actual output is mostly correct but misses the detail about verifying the outlet and wiring condition before covering."
+        }
+      }
+    }
+  ]
+}
