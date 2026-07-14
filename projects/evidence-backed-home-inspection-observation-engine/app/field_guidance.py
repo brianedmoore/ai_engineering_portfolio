@@ -192,17 +192,22 @@ FIELD_GUIDANCE = {
         "criteria": [
             "Be specific about the action (repair, replace, evaluate, monitor)",
             "Name the professional if applicable",
-            "Keep it to one sentence"
+            "Use 1-2 sentences — include a follow-up verification step when safety or water damage is involved",
+            "For electrical defects, alwang and outlet condition before closing upor covering",
+            "For water or moisture defectadjacent materials for secondary damageafter the repair"
         ],
         "examples": [
-            "Have a licensed plumber repair or replace the P-trap to stop the active leak.",
-            "Install a cover plate on the outlet to eliminate the safety hazard."
+            "Have a licensed plumber repatop the active leak. After the repair,inspect the cabinet base and subfloor for any water damage.",
+            "Install an appropriate outleg, verify the outlet and wiring are ingood condition.",
+            "Have a handyman replace the nspect for underlying moisture damage. Ensure proper caulking and sealing around the window after the repair."
         ],
         "negative_examples": [
             "Fix it — too vague, does not name the action or professional",
+            "Have a plumber fix the P-trap — correct first step but missing the follow-up inspection for water damage",
+            "Install a cover plate on the outlet — correct first step but missing the safety verification of wiring condition",
             "This defect should be addressed by a qualified professional at the earliest convenience — vague and does not specify what needs to be done"
         ],
-        "note": ""
+        "note": "Always think beyond the immediate fix — what should be verified or inspected after the repair is made?"
     },
     "responsible_professional": {
         "description": "The type of professional best suited to address the defect.",
