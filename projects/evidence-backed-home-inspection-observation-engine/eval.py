@@ -1,6 +1,8 @@
 import json
 import os
+import sys
 import openai
+from datetime import datetime
 from dotenv import load_dotenv
 from app.load_sample_observations import load_sample_observations
 from app.expected_output import load_expected_outputs
@@ -51,8 +53,30 @@ Respond with JSON only: {{"score": <1-5>, "reason": "<one sentence>"}}
     )
     return json.loads(response.choices[0].message.content)
 
+def save_run(change_note: str, results: list, correct: int, total: int, judge_sum: float, judge_total: int):
+    os.makedirs("runs", exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    run = {
+        "timestamp": datetime.now().isoformat(),
+        "change_note": change_note,
+        "enum_score": {
+            "correct": correct,
+            "total": total,
+            "pct": round(100 * correct / total, 1) if total > 0 else 0
+        },
+        "judge_score": {
+            "average": round(judge_sum / judge_total, 2) if judge_total > 0 else None,
+            "total_fields": judge_total
+        },
+        "observations": results
+    }
+    path = f"runs/{timestamp}_eval.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(run, f, indent=2)
+    print(f"\nRun saved to {path}")
 
-def run_eval():
+
+def run_eval(change_note: str = "no note"):
     observations = load_sample_observations("data/sample_observations.jsonl")
     expected_outputs = load_expected_outputs("data/expected_outputs.jsonl")
 
@@ -90,7 +114,7 @@ def run_eval():
         results.append({
             "observation_id": observation_id,
             "fields": field_results,
-            "judege_results": judge_results
+            "judge_results": judge_results
         })
 
     print("\n=== EVAL RESULTS (Enum Fields)===\n")
@@ -120,9 +144,12 @@ def run_eval():
             judge_sum += vals["score"]
             judge_total += 1
         print()
-        
+
     if judge_total > 0:
         print(f"Average LLM Judge Score: {judge_sum / judge_total:.1f}/5 across {judge_total} fields")
 
+    save_run(change_note, results, correct, total, judge_sum, judge_total)
+
 if __name__ == "__main__":
-    run_eval()
+    change_note = sys.argv[1] if len(sys.argv) > 1 else "no note"
+    run_eval(change_note)
