@@ -84,7 +84,9 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 - Structured LLM outputs via SDK-enforced schemas (Anthropic tool use, OpenAI json_schema)
 - Model-agnostic provider abstraction (swap between Anthropic and OpenAI via `.env`)
 - Field-level prompt guidance with examples and negative examples
-- Evaluation-first AI development with a scored eval harness
+- Evaluation-first AI development with a two-track eval harness (enum exact match + LLM judge)
+- Eval run logging with timestamped JSON records for tracking score changes over time
+- Audio transcription via OpenAI Whisper
 - FastAPI REST API with auto-generated interactive docs
 - Human-in-the-loop review design
 - Pytest test suite
@@ -95,7 +97,7 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 evidence-backed-home-inspection-observation-engine/
   app/
     __init__.py
-    api.py                      # FastAPI app and POST /observations endpoint
+    api.py                      # FastAPI app — POST /observations and POST /transcribe
     schemas.py                  # Pydantic models and enums
     workflow_status.py          # Determines observation status from input
     load_sample_observations.py # Loads JSONL input data
@@ -104,9 +106,12 @@ evidence-backed-home-inspection-observation-engine/
     prompts.py                  # System prompt and observation prompt builder
     field_guidance.py           # Per-field rules, criteria, examples, and negative examples
     expected_output.py          # Loads expected output ground truth for eval
+    audio_transcription.py      # Audio file transcription via OpenAI Whisper
   data/
-    sample_observations.jsonl   # 3 sample inspector observations
-    expected_outputs.jsonl      # Ground truth for eval scoring
+    sample_observations.jsonl   # 15 sample inspector observations (14 complete, 1 incomplete)
+    expected_outputs.jsonl      # Ground truth for eval scoring (enum + free-text fields)
+  runs/
+    *.json                      # Timestamped eval run records
   docs/
     product_brief.md
     workflow.md
@@ -139,11 +144,11 @@ ANTHROPIC_API_KEY=your_key_here
 OPENAI_API_KEY=your_key_here
 ```
 
-Set `LLM_PROVIDER` to `anthropic` or `openai` to switch providers.
+Set `LLM_PROVIDER` to `anthropic` or `openai` to switch providers for the observation factory. The eval LLM judge and audio transcription always use OpenAI.
 
 ## Running the Demo
 
-Runs all 3 sample observations through the factory and prints the structured output:
+Runs all sample observations through the factory and prints the structured output:
 
 ```bash
 python run_demo.py
@@ -157,9 +162,11 @@ Start the server:
 uvicorn app.api:app --reload
 ```
 
-Open the interactive docs at `http://127.0.0.1:8000/docs` to test the endpoint in the browser.
+Open the interactive docs at `http://127.0.0.1:8000/docs` to test endpoints in the browser.
 
-The `POST /observations` endpoint accepts:
+### POST /observations
+
+Accepts a typed description, optional audio transcript, and photo IDs. Returns a structured observation.
 
 ```json
 {
@@ -171,15 +178,42 @@ The `POST /observations` endpoint accepts:
 
 With `observation_id` as a query parameter.
 
-## Running the Eval
+### POST /transcribe
 
-Scores LLM output against ground truth in `data/expected_outputs.jsonl` across 5 enum fields:
+Accepts an audio file upload and returns the transcript as text. Use this to transcribe inspector audio before submitting to `/observations`.
 
 ```bash
-python eval.py
+curl -X POST "http://127.0.0.1:8000/transcribe" \
+  -F "file=@inspector_note.mp3"
 ```
 
-Current eval scores enum fields only (system, severity, safety_related, responsible_professional, estimated_cost_range). Free-text field evaluation via LLM judge and semantic similarity is planned.
+Returns:
+
+```json
+{ "transcript": "Active leak under the kitchen sink, the cabinet base is wet." }
+```
+
+Supported formats: mp3, mp4, m4a, wav, webm.
+
+## Running the Eval
+
+Scores LLM output against ground truth in `data/expected_outputs.jsonl`.
+
+Full eval (enum exact match + LLM judge on free-text fields):
+
+```bash
+python eval.py "your change note here"
+```
+
+Enum-only eval (faster and cheaper — no LLM judge calls):
+
+```bash
+python eval.py "your change note here" --enum-only
+```
+
+Each run saves a timestamped JSON record to `runs/` capturing scores, per-field results, and the change note. Use this to track whether prompt or guidance changes improve scores.
+
+Eval covers 5 enum fields (system, severity, safety_related, responsible_professional, estimated_cost_range) and 3 free-text fields via LLM judge (professional_report_description, plain_english_summary, recommended_action). Free-text fields are scored 1-10.
 
 ## Running Tests
 
@@ -191,4 +225,4 @@ pytest tests/ -v
 
 ## Status
 
-Core LLM pipeline complete. REST API live. Eval harness scoring at 13/15 enum fields.
+Core LLM pipeline complete. REST API live with observation and transcription endpoints. Two-track eval harness operational across 14 complete observations covering all home system and severity enum values.
