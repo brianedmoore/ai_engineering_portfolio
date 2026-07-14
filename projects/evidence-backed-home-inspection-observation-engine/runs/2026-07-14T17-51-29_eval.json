@@ -1,0 +1,147 @@
+{
+  "timestamp": "2026-07-14T17:51:29.757180",
+  "change_note": "tuned recommended_action guidance to include follow-up verification steps",
+  "enum_score": {
+    "correct": 12,
+    "total": 15,
+    "pct": 80.0
+  },
+  "judge_score": {
+    "average": 3.78,
+    "total_fields": 9
+  },
+  "observations": [
+    {
+      "observation_id": "obs_001",
+      "fields": {
+        "system": {
+          "actual": "Plumbing",
+          "expected": "Plumbing",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": false,
+          "match": false
+        },
+        "responsible_professional": {
+          "actual": "Plumber",
+          "expected": "Plumber",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "Unknown",
+          "expected": "$100-$300",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "The actual output captures the key information regarding the leak and its impact on the cabinet but lacks the explicit recommendation for immediate repair."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures the key information about the leak and the need for a plumber, but lacks detail about the specific location of the leak and the urgency related to potential water damage."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures the key components but substitutes 'repair the active leak' for 'inspect and repair the P-trap connection', which introduces a slight variation in specificity."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_002",
+      "fields": {
+        "system": {
+          "actual": "Exterior",
+          "expected": "Exterior",
+          "match": true
+        },
+        "severity": {
+          "actual": "Medium",
+          "expected": "Medium",
+          "match": true
+        },
+        "safety_related": {
+          "actual": false,
+          "expected": false,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Handyman",
+          "expected": "Handyman",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$100-$300",
+          "expected": "$300-$750",
+          "match": false
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 2,
+          "reason": "The actual output is partially correct but misses important details about the condition and implications of the damage."
+        },
+        "plain_english_summary": {
+          "score": 4,
+          "reason": "The actual output captures key information about the damaged boards and the need for attention to prevent further deterioration, with slight variation in wording."
+        },
+        "recommended_action": {
+          "score": 3,
+          "reason": "The actual output captures the general idea but omits details about moisture damage and proper caulking and sealing."
+        }
+      }
+    },
+    {
+      "observation_id": "obs_003",
+      "fields": {
+        "system": {
+          "actual": "Electrical",
+          "expected": "Electrical",
+          "match": true
+        },
+        "severity": {
+          "actual": "High",
+          "expected": "High",
+          "match": true
+        },
+        "safety_related": {
+          "actual": true,
+          "expected": true,
+          "match": true
+        },
+        "responsible_professional": {
+          "actual": "Homeowner/DIY",
+          "expected": "Homeowner/DIY",
+          "match": true
+        },
+        "estimated_cost_range": {
+          "actual": "$0-$100",
+          "expected": "$0-$100",
+          "match": true
+        }
+      },
+      "judge_results": {
+        "professional_report_description": {
+          "score": 4,
+          "reason": "Good, captures key information with slight variation in wording but conveys the same concern about safety."
+        },
+        "plain_english_summary": {
+          "score": 5,
+          "reason": "The actual output accurately conveys the key information about the exposed outlet, the associated safety risks, and the need for action."
+        },
+        "recommended_action": {
+          "score": 4,
+          "reason": "The actual output captures key information but suggests verifying the outlet and wiring after installation, while the expected advises verification before covering."
+        }
+      }
+    }
+  ]
+}
