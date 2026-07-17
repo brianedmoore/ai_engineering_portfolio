@@ -34,7 +34,7 @@ def create_observation(
         photo_ids = []
 
         for photo in photos:
-            suffix = os.path.splittext(photo.filename)[1]
+            suffix = os.path.splitext(photo.filename)[1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 tmp.write(photo.file.read())
                 tmp_paths.append(tmp.name)

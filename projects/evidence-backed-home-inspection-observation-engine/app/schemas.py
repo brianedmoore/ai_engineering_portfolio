@@ -150,6 +150,7 @@ class StructuredObservation(SQLModel, table=True):
     responsible_professional: Optional[ResponsibleProfessional] = None
     estimated_cost_range: Optional[EstimatedCostRange] = None
     photo_ids: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    image_descriptions: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     source_input_type: Optional[SourceInputType] = None
     confidence: float = Field(default=0.0)
     needs_human_review: bool = True
