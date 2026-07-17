@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
-from sqlmodel import Session
+from sqlmodel import Session, select
 import tempfile
 import os
 from app.schemas import ObservationInput, StructuredObservation, ObservationStatus
@@ -40,6 +40,12 @@ def get_observation(observation_id: str, session: Session = Depends(get_session)
     if not observation:
         raise HTTPException(status_code=404, detail="Observation not found")
     return observation
+
+
+@app.get("/observations", response_model=list[StructuredObservation])
+def list_observations(session: Session = Depends(get_session)):
+    observations = session.exec(select(StructuredObservation)).all()
+    return observations
     
 
 @app.post("/transcribe")
