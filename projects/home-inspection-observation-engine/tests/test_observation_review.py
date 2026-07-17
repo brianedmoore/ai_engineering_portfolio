@@ -95,3 +95,18 @@ def test_reject_returns_400_if_not_ready_for_review():
 def test_get_observation_not_found():
     response = client.get("/observations/does_not_exist")
     assert response.status_code == 404
+
+
+def test_get_observation_by_id_returns_observation():
+    with Session(engine) as session:
+        obs = StructuredObservation(
+            observation_id="test_005",
+            status=ObservationStatus.READY_FOR_REVIEW,
+            confidence=0.9
+        )
+        session.add(obs)
+        session.commit()
+
+    response = client.get("/observations/test_005")
+    assert response.status_code == 200
+    assert response.json()["observation_id"] == "test_005"
