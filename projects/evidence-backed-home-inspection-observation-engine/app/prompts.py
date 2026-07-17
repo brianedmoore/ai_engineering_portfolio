@@ -41,6 +41,11 @@ def build_observation_prompt(observation_input) -> str:
     if observation_input.photo_ids:
         parts.append(f"Photos referenced: {', '.join(observation_input.photo_ids)}")
 
+    if observation_input.image_descriptions:
+        for i, desc in enumerate(observation_input.image_descriptions, 1):
+            parts.append(f"Photo {i} description: {desc}")
+
+
     input_text = "\n".join(parts)
     guidance_block = _build_field_guidance_block()
 

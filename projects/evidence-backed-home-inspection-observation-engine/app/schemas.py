@@ -75,6 +75,9 @@ class ObservationInput(BaseModel):
         default_factory=list,
         description="One or more photo references used as evidence for the observation."
     )
+    image_descriptions: List[str] = Field(
+        default_factory=list,
+        description="One or more photo descriptions.")
     
     @property
     def is_complete(self) -> bool:
