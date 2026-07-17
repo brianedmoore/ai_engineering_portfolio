@@ -90,3 +90,8 @@ def test_reject_returns_400_if_not_ready_for_review():
 
     response = client.post("/observations/test_004/reject")
     assert response.status_code == 400
+
+
+def test_get_observation_not_found():
+    response = client.get("/observations/does_not_exist")
+    assert response.status_code == 404
