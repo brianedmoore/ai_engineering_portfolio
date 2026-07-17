@@ -88,8 +88,10 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 - Eval run logging with timestamped JSON records for tracking score changes over time
 - Audio transcription via OpenAI Whisper
 - Image analysis via vision LLM (Anthropic or OpenAI, same provider abstraction)
+- Automatic photo analysis wired into the observation submission workflow
+- SQLite persistence via SQLModel with full observation lifecycle (create, retrieve, approve, reject)
 - FastAPI REST API with auto-generated interactive docs
-- Human-in-the-loop review design
+- Human-in-the-loop review design with approve/reject endpoints
 - Pytest test suite
 
 ## Project Structure
@@ -98,7 +100,8 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 evidence-backed-home-inspection-observation-engine/
   app/
     __init__.py
-    api.py                      # FastAPI app — POST /observations, /transcribe, /analyze-image
+    api.py                      # FastAPI app — full REST API with observation CRUD and review workflow
+    database.py                 # SQLite engine, session management, and table creation
     schemas.py                  # Pydantic models and enums
     workflow_status.py          # Determines observation status from input
     load_sample_observations.py # Loads JSONL input data
@@ -170,17 +173,31 @@ Open the interactive docs at `http://127.0.0.1:8000/docs` to test endpoints in t
 
 ### POST /observations
 
-Accepts a typed description, optional audio transcript, and photo IDs. Returns a structured observation.
+Accepts multipart form data with an optional text description, optional audio transcript, and one or more photo file uploads. Automatically runs vision analysis on each photo and includes the image descriptions in the LLM prompt. Returns a structured observation saved to the database.
 
-```json
-{
-  "text_description": "Active leak under kitchen sink, cabinet base is wet",
-  "audio_transcript": null,
-  "photo_ids": ["kitchen_sink_001.jpg"]
-}
+```bash
+curl.exe -X POST "http://127.0.0.1:8000/observations?observation_id=obs_001" \
+  -F "text_description=water stain on ceiling near light fixture, approximately 12 inches diameter" \
+  -F "photos=@photo.jpg"
 ```
 
-With `observation_id` as a query parameter.
+`observation_id` is a required query parameter. Photos are optional but recommended — a complete observation requires at least one photo and either a text description or audio transcript.
+
+### GET /observations
+
+Returns all saved observations.
+
+### GET /observations/{observation_id}
+
+Returns a single observation by ID, including stored image descriptions.
+
+### POST /observations/{observation_id}/approve
+
+Transitions a `Ready for Review` observation to `Approved` and sets `needs_human_review` to false.
+
+### POST /observations/{observation_id}/reject
+
+Transitions a `Ready for Review` observation to `Rejected` and sets `needs_human_review` to false.
 
 ### POST /transcribe
 
@@ -216,6 +233,20 @@ Returns:
 
 Supported formats: jpg, jpeg, png, gif, webp.
 
+## Viewing the Database
+
+Observations are persisted to `observations.db` (SQLite) in the project folder. The file is created automatically on first server startup.
+
+To inspect the data with a GUI, download [DB Browser for SQLite](https://sqlitebrowser.org/dl/) — free, open source, no setup required. Open the app, click **Open Database**, select `observations.db`, then go to the **Browse Data** tab and select the `structuredobservation` table.
+
+To query it from the terminal without a GUI:
+
+```bash
+python -c "import sqlite3; conn = sqlite3.connect('observations.db'); rows = conn.execute('SELECT observation_id, status, title FROM structuredobservation').fetchall(); [print(r) for r in rows]; conn.close()"
+```
+
+**Note:** if you add new fields to `StructuredObservation`, delete `observations.db` and restart the server — SQLModel will recreate the table with the updated schema. Existing data will be lost.
+
 ## Running the Eval
 
 Scores LLM output against ground truth in `data/expected_outputs.jsonl`.
@@ -246,10 +277,4 @@ pytest tests/ -v
 
 ## Status
 
-Core LLM pipeline complete. REST API live with three endpoints: observation generation, audio transcription, and image analysis. Two-track eval harness operational across 14 complete observations covering all home system and severity enum values. 16 passing tests.
-
-## What's Next
-
-The image analysis pipeline and the observation pipeline are currently separate. The logical next step is to wire them together: when an inspector submits an observation with photos, the system should automatically analyze those images and include the visual description in the LLM prompt alongside the text/audio input. Right now `photo_ids` are stored as strings but never analyzed.
-
-After that, the remaining gap is the approval workflow — `Approved` and `Rejected` statuses are defined in the schema but are unreachable because there is no endpoint to transition a `Ready for Review` observation.
+Full end-to-end pipeline operational. Inspector submits a photo + field note via `POST /observations`, the server automatically analyzes the image via vision LLM, generates a structured observation, and persists everything to SQLite. Observations can be retrieved, listed, approved, and rejected via REST endpoints. Image descriptions are stored on the observation for full traceability. 16 passing tests.
