@@ -15,6 +15,8 @@ def create_basic_structured_observation(observation_id: str, observation_input: 
             observation_id=observation_id,
             status=ObservationStatus.INCOMPLETE,
             missing_information=observation_input.missing_information,
+            photo_ids=observation_input.photo_ids,
+            image_descriptions=observation_input.image_descriptions,
             confidence=0.0
         )
 
