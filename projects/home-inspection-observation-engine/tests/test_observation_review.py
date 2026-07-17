@@ -110,3 +110,9 @@ def test_get_observation_by_id_returns_observation():
     response = client.get("/observations/test_005")
     assert response.status_code == 200
     assert response.json()["observation_id"] == "test_005"
+
+
+def test_get_all_observations_returns_empty_list():
+    response = client.get("/observations")
+    assert response.status_code == 200
+    assert response.json() == []
