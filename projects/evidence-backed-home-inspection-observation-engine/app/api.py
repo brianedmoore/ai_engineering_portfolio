@@ -1,10 +1,12 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from sqlmodel import Session
 import tempfile
 import os
 from app.schemas import ObservationInput, StructuredObservation
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
+from app.database import create_db_and_tables, get_session
 
 app = FastAPI(
     title="Home Inspection Observation Engine",
@@ -13,10 +15,21 @@ app = FastAPI(
 )
 
 
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+
+
 @app.post("/observations", response_model=StructuredObservation)
-def create_observation(observation_id: str, observation_input: ObservationInput):
+def create_observation(observation_id: str, 
+                       observation_input: ObservationInput,
+                       session: Session = Depends(get_session)):
     try:
-        return create_basic_structured_observation(observation_id, observation_input)
+        result = create_basic_structured_observation(observation_id, observation_input)
+        session.add(result)
+        session.commit()
+        session.refresh(result)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     

@@ -1,6 +1,8 @@
 from enum import Enum
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
+from sqlmodel import SQLModel, Field
+from sqlalchemy import Column, JSON
 
 
 class ObservationStatus(str, Enum):
@@ -132,8 +134,8 @@ class LLMObservationOutput(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
 
 
-class StructuredObservation(BaseModel):
-    observation_id: str
+class StructuredObservation(SQLModel, table=True):
+    observation_id: str = Field(primary_key=True)
     status: ObservationStatus
     title: Optional[str] = None
     room_or_area: Optional[str] = None
@@ -147,8 +149,8 @@ class StructuredObservation(BaseModel):
     recommended_action: Optional[str] = None
     responsible_professional: Optional[ResponsibleProfessional] = None
     estimated_cost_range: Optional[EstimatedCostRange] = None
-    photo_ids: List[str] = Field(default_factory=list)
+    photo_ids: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     source_input_type: Optional[SourceInputType] = None
-    confidence: float = Field(default=0.0, ge=0 ,le=1)
+    confidence: float = Field(default=0.0)
     needs_human_review: bool = True
-    missing_information: List[str] = Field(default_factory=list)
+    missing_information: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
