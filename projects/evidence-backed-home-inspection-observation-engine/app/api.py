@@ -4,6 +4,7 @@ import os
 from app.schemas import ObservationInput, StructuredObservation
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
+from app.image_analysis import analyze_image
 
 app = FastAPI(
     title="Home Inspection Observation Engine",
@@ -29,6 +30,21 @@ def transcribe(file: UploadFile = File(...)):
             tmp_path = tmp.name
         transcript = transcribe_audio(tmp_path)
         return {"transcript": transcript}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        os.unlink(tmp_path)
+
+
+@app.post("/analyze-image")
+def analyze_image_endpoint(file: UploadFile = File(...)):
+    try:
+        suffix = os.path.splitext(file.filename)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(file.file.read())
+            tmp_path = tmp.name
+        description = analyze_image(tmp_path)
+        return {"description": description}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

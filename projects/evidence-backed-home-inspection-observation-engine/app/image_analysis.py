@@ -5,12 +5,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-_PROMPT = (
-    "You are a home inspection assistant. Analyze this image and describe: "
-    "what component or area of the home is shown, any visible defects, damage, "
-    "deterioration, or concerns, and the overall condition. "
-    "Focus on factual observations relevant to a home inspection report."
-)
+_PROMPT = """You are a home inspection assistant. Analyze this image and describe:
+what component or area of the home is shown, any visible defects, damage,
+deterioration, or concerns, and the overall condition.
+Focus on factual observations relevant to a home inspection report."""
 
 
 def analyze_image(file_path: str) -> str:
