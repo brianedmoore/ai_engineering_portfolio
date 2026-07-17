@@ -87,6 +87,7 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 - Evaluation-first AI development with a two-track eval harness (enum exact match + LLM judge)
 - Eval run logging with timestamped JSON records for tracking score changes over time
 - Audio transcription via OpenAI Whisper
+- Image analysis via vision LLM (Anthropic or OpenAI, same provider abstraction)
 - FastAPI REST API with auto-generated interactive docs
 - Human-in-the-loop review design
 - Pytest test suite
@@ -97,7 +98,7 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 evidence-backed-home-inspection-observation-engine/
   app/
     __init__.py
-    api.py                      # FastAPI app — POST /observations and POST /transcribe
+    api.py                      # FastAPI app — POST /observations, /transcribe, /analyze-image
     schemas.py                  # Pydantic models and enums
     workflow_status.py          # Determines observation status from input
     load_sample_observations.py # Loads JSONL input data
@@ -107,6 +108,7 @@ evidence-backed-home-inspection-observation-engine/
     field_guidance.py           # Per-field rules, criteria, examples, and negative examples
     expected_output.py          # Loads expected output ground truth for eval
     audio_transcription.py      # Audio file transcription via OpenAI Whisper
+    image_analysis.py           # Image description via vision LLM (Anthropic or OpenAI)
   data/
     sample_observations.jsonl   # 15 sample inspector observations (14 complete, 1 incomplete)
     expected_outputs.jsonl      # Ground truth for eval scoring (enum + free-text fields)
@@ -122,6 +124,8 @@ evidence-backed-home-inspection-observation-engine/
     test_workflow_status.py
     test_load_sample_observations.py
     test_observation_factory.py
+    test_audio_transcription.py
+    test_image_analysis.py
   eval.py                       # Scores LLM output against expected outputs
   run_demo.py                   # Runs all sample observations and prints results
   requirements.txt
@@ -195,6 +199,23 @@ Returns:
 
 Supported formats: mp3, mp4, m4a, wav, webm.
 
+### POST /analyze-image
+
+Accepts an image file upload and returns a plain-English description of what the vision LLM sees — visible defects, materials, condition. Use the same `LLM_PROVIDER` setting as the observation factory.
+
+```bash
+curl -X POST "http://127.0.0.1:8000/analyze-image" \
+  -F "file=@photo.jpg"
+```
+
+Returns:
+
+```json
+{ "description": "The image shows a section of drywall near the base of a wall with visible water staining and bubbling paint, suggesting past or ongoing moisture intrusion." }
+```
+
+Supported formats: jpg, jpeg, png, gif, webp.
+
 ## Running the Eval
 
 Scores LLM output against ground truth in `data/expected_outputs.jsonl`.
@@ -221,8 +242,14 @@ Eval covers 5 enum fields (system, severity, safety_related, responsible_profess
 pytest tests/ -v
 ```
 
-12 tests covering input validation, workflow status, data loading, and observation factory behavior.
+16 tests covering input validation, workflow status, data loading, observation factory behavior, audio transcription, and image analysis. Both transcription and image analysis tests mock the LLM client — no API calls needed to run the test suite.
 
 ## Status
 
-Core LLM pipeline complete. REST API live with observation and transcription endpoints. Two-track eval harness operational across 14 complete observations covering all home system and severity enum values.
+Core LLM pipeline complete. REST API live with three endpoints: observation generation, audio transcription, and image analysis. Two-track eval harness operational across 14 complete observations covering all home system and severity enum values. 16 passing tests.
+
+## What's Next
+
+The image analysis pipeline and the observation pipeline are currently separate. The logical next step is to wire them together: when an inspector submits an observation with photos, the system should automatically analyze those images and include the visual description in the LLM prompt alongside the text/audio input. Right now `photo_ids` are stored as strings but never analyzed.
+
+After that, the remaining gap is the approval workflow — `Approved` and `Rejected` statuses are defined in the schema but are unreachable because there is no endpoint to transition a `Ready for Review` observation.
