@@ -116,3 +116,19 @@ def test_get_all_observations_returns_empty_list():
     response = client.get("/observations")
     assert response.status_code == 200
     assert response.json() == []
+
+
+def test_get_all_observations_returns_list():
+    with Session(engine) as session:
+        obs = StructuredObservation(
+            observation_id="test_006",
+            status=ObservationStatus.READY_FOR_REVIEW,
+            confidence=0.9
+        )
+        session.add(obs)
+        session.commit()
+
+    response = client.get("/observations")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["observation_id"] == "test_006"
