@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form
+from typing import List, Optional
 from sqlmodel import Session, select
 import tempfile
 import os
@@ -21,10 +22,32 @@ def on_startup():
 
 
 @app.post("/observations", response_model=StructuredObservation)
-def create_observation(observation_id: str, 
-                       observation_input: ObservationInput,
-                       session: Session = Depends(get_session)):
+def create_observation(
+    observation_id: str, 
+    text_description: Optional[str] = Form(default=None),
+    audio_transcript: Optional[str] = Form(default=None),
+    photos: List[UploadFile] = File(default=[]),
+    session: Session = Depends(get_session)):
+    tmp_paths = []
     try:
+        image_descriptions = []
+        photo_ids = []
+
+        for photo in photos:
+            suffix = os.path.splittext(photo.filename)[1]
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(photo.file.read())
+                tmp_paths.append(tmp.name)
+            image_descriptions.append(analyze_image(tmp_paths[-1]))
+            photo_ids.append(photo.filename)
+
+        observation_input = ObservationInput(
+            text_description=text_description,
+            audio_transcript=audio_transcript,
+            photo_ids=photo_ids,
+            image_descriptions=image_descriptions
+            )
+        
         result = create_basic_structured_observation(observation_id, observation_input)
         session.add(result)
         session.commit()
@@ -32,6 +55,9 @@ def create_observation(observation_id: str,
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        for path in tmp_paths:
+            os.unlink(path)
 
 
 @app.get("/observations/{observation_id}", response_model=StructuredObservation)
