@@ -68,9 +68,12 @@ def get_observation(observation_id: str, session: Session = Depends(get_session)
     return observation
 
 
-@app.get("/observations", response_model=list[StructuredObservation])
-def list_observations(session: Session = Depends(get_session)):
-    observations = session.exec(select(StructuredObservation)).all()
+@app.get("/observations", response_model=List[StructuredObservation])
+def list_observations(status: Optional[ObservationStatus] = None, session: Session = Depends(get_session)):
+    query = select(StructuredObservation)
+    if status is not None:
+        query = query.where(StructuredObservation.status == status)
+    observations = session.exec(query).all()
     return observations
     
 
