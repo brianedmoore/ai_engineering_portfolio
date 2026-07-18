@@ -5,6 +5,7 @@ from sqlmodel import create_engine, Session, SQLModel
 from unittest.mock import patch
 from app.api import app
 from app.database import get_session
+from app.schemas import StructuredObservation, ObservationStatus
 
 engine = create_engine(
     "sqlite://",
@@ -76,3 +77,25 @@ def test_create_observation_returns_500_on_factory_error():
             files={"photos": ("photo.jpg", b"fake image bytes", "image/jpeg")}
         )
     assert response.status_code == 500
+
+
+def test_get_observations_filtered_by_status():
+    with Session(engine) as session:
+        obs1 = StructuredObservation(
+            observation_id="test_003",
+            status=ObservationStatus.READY_FOR_REVIEW,
+            confidence=0.9
+        )
+        obs2 = StructuredObservation(
+            observation_id="test_004",
+            status=ObservationStatus.APPROVED,
+            confidence=0.9
+        )
+        session.add(obs1)
+        session.add(obs2)
+        session.commit()
+
+    response = client.get("/observations?status=Ready+for+Review")
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+    assert response.json()[0]["observation_id"] == "test_003"
