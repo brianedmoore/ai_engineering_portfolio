@@ -62,3 +62,17 @@ def test_create_observation_with_text_and_photo():
     assert response.status_code == 200
     assert response.json()["observation_id"] == "test_001"
     assert response.json()["status"] == "Ready for Review"
+
+
+def test_create_observation_returns_500_on_factory_error():
+    with patch("app.api.create_basic_structured_observation") as mock_factory, \
+         patch("app.api.analyze_image") as mock_analyze:
+        mock_analyze.return_value = "Some description"
+        mock_factory.side_effect = Exception("LLM call failed")
+
+        response = client.post(
+            "/observations?observation_id=test_002",
+            data={"text_description": "Active leak under kitchen sink"},
+            files={"photos": ("photo.jpg", b"fake image bytes", "image/jpeg")}
+        )
+    assert response.status_code == 500
