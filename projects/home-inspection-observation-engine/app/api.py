@@ -87,7 +87,8 @@ def list_observations(status: Optional[ObservationStatus] = None, limit: int = 1
         query = query.where(StructuredObservation.status == status)
     observations = session.exec(query.offset(offset).limit(limit)).all()
     return observations
-    
+
+
 @app.get("/observations/{observation_id}/photos/{photo_id}")
 def get_observation_photo(observation_id: str, photo_id: int, session: Session = Depends(get_session)):
     photo = session.get(Photo, photo_id)
@@ -154,3 +155,15 @@ def reject_observation(observation_id: str, session: Session = Depends(get_sessi
     session.commit()
     session.refresh(observation)
     return observation
+
+
+@app.delete("/observations/{observation_id}", status_code=204)
+def delete_observation(observation_id: str, session: Session = Depends(get_session)):
+    observation = session.get(StructuredObservation, observation_id)
+    if not observation:
+        raise HTTPException(status_code=404, detail="Observation not found")
+    photos = session.exec(select(Photo).where(Photo.observation_id == observation_id)).all()
+    for photo in photos:
+        session.delete(photo)
+    session.delete(observation)
+    session.commit()
