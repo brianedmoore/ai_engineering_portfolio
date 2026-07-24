@@ -121,9 +121,10 @@ class ObservationInput(BaseModel):
 
 
 class Photo(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_keys=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     observation_id: str
     filename: str
+    content_type: str
     data: bytes
 
 
