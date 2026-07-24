@@ -69,7 +69,7 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
   "recommended_action": "Have a licensed plumber repair the leak and assess any water damage to the cabinet.",
   "responsible_professional": "Plumber",
   "estimated_cost_range": "$100-$300",
-  "photo_ids": ["kitchen_sink_001.jpg"],
+  "photo_ids": [1],
   "source_input_type": "Text",
   "confidence": 1.0,
   "needs_human_review": true,
@@ -89,20 +89,22 @@ Typed note: active leak under kitchen sink, cabinet base wet, drip at p trap
 - Audio transcription via OpenAI Whisper
 - Image analysis via vision LLM (Anthropic or OpenAI, same provider abstraction)
 - Automatic photo analysis wired into the observation submission workflow
-- SQLite persistence via SQLModel with full observation lifecycle (create, retrieve, approve, reject)
+- SQLite persistence via SQLModel with full observation lifecycle (create, retrieve, approve, reject, delete)
+- Photo storage as binary BLOBs in SQLite — no filesystem dependency
 - FastAPI REST API with auto-generated interactive docs
+- Pagination and status filtering on list endpoint
 - Human-in-the-loop review design with approve/reject endpoints
 - Pytest test suite
 
 ## Project Structure
 
 ```text
-evidence-backed-home-inspection-observation-engine/
+home-inspection-observation-engine/
   app/
     __init__.py
     api.py                      # FastAPI app — full REST API with observation CRUD and review workflow
     database.py                 # SQLite engine, session management, and table creation
-    schemas.py                  # Pydantic models and enums
+    schemas.py                  # Pydantic models, enums, and Photo table
     workflow_status.py          # Determines observation status from input
     load_sample_observations.py # Loads JSONL input data
     observation_factory.py      # Core LLM call and structured output logic
@@ -129,8 +131,12 @@ evidence-backed-home-inspection-observation-engine/
     test_observation_factory.py
     test_audio_transcription.py
     test_image_analysis.py
+    test_observation_review.py
+    test_create_observation.py
   eval.py                       # Scores LLM output against expected outputs
   run_demo.py                   # Runs all sample observations and prints results
+  Dockerfile
+  .dockerignore
   requirements.txt
   README.md
 ```
@@ -185,11 +191,22 @@ curl.exe -X POST "http://127.0.0.1:8000/observations?observation_id=obs_001" \
 
 ### GET /observations
 
-Returns all saved observations.
+Returns all saved observations. Supports optional query parameters:
+
+- `?status=Ready+for+Review` — filter by status (`Incomplete`, `Ready for Review`, `Approved`, `Rejected`)
+- `?limit=10&offset=0` — paginate results (default limit 100)
 
 ### GET /observations/{observation_id}
 
-Returns a single observation by ID, including stored image descriptions.
+Returns a single observation by ID, including stored image descriptions and photo IDs.
+
+### GET /observations/{observation_id}/photos/{photo_id}
+
+Returns the raw image binary for a stored photo. `photo_id` is the integer ID returned in `photo_ids` on the observation.
+
+```bash
+curl "http://127.0.0.1:8000/observations/obs_001/photos/1" --output photo.jpg
+```
 
 ### POST /observations/{observation_id}/approve
 
@@ -198,6 +215,14 @@ Transitions a `Ready for Review` observation to `Approved` and sets `needs_human
 ### POST /observations/{observation_id}/reject
 
 Transitions a `Ready for Review` observation to `Rejected` and sets `needs_human_review` to false.
+
+### DELETE /observations/{observation_id}
+
+Permanently deletes an observation and all associated photos from the database. Returns `204 No Content` on success.
+
+```bash
+curl -X DELETE "http://127.0.0.1:8000/observations/obs_001"
+```
 
 ### POST /transcribe
 
@@ -304,8 +329,8 @@ Eval covers 5 enum fields (system, severity, safety_related, responsible_profess
 pytest tests/ -v
 ```
 
-16 tests covering input validation, workflow status, data loading, observation factory behavior, audio transcription, and image analysis. Both transcription and image analysis tests mock the LLM client — no API calls needed to run the test suite.
+Tests covering input validation, workflow status, data loading, observation factory behavior, audio transcription, image analysis, REST API endpoints, and photo storage. Both transcription and image analysis tests mock the LLM client — no API calls needed to run the test suite.
 
 ## Status
 
-Full end-to-end pipeline operational. Inspector submits a photo + field note via `POST /observations`, the server automatically analyzes the image via vision LLM, generates a structured observation, and persists everything to SQLite. Observations can be retrieved, listed, approved, and rejected via REST endpoints. Image descriptions are stored on the observation for full traceability. 16 passing tests.
+Full end-to-end pipeline operational. Inspector submits a photo + field note via `POST /observations`, the server automatically analyzes the image via vision LLM, generates a structured observation, and persists everything to SQLite — including photos stored as binary BLOBs. Observations can be retrieved, listed with status filtering and pagination, approved, rejected, and deleted via REST endpoints. Photos are retrievable by ID. Containerized via Docker. Full Pytest test suite with no API calls required.
