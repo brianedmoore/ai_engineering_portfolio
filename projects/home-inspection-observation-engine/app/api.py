@@ -3,7 +3,7 @@ from typing import List, Optional
 from sqlmodel import Session, select
 import tempfile
 import os
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
@@ -31,24 +31,36 @@ def create_observation(
     tmp_paths = []
     try:
         image_descriptions = []
-        photo_ids = []
+        photo_rows = []
 
         for photo in photos:
+            photo_bytes = photo.file.read()
             suffix = os.path.splitext(photo.filename)[1]
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-                tmp.write(photo.file.read())
+                tmp.write(photo_bytes)
                 tmp_paths.append(tmp.name)
             image_descriptions.append(analyze_image(tmp_paths[-1]))
-            photo_ids.append(photo.filename)
+            photo_rows.append(Photo(
+                observation_id=observation_id,
+                filename=photo.filename,
+                content_type=photo.content_type or "image/jpeg",
+                data=photo_bytes
+            ))
 
         observation_input = ObservationInput(
             text_description=text_description,
             audio_transcript=audio_transcript,
-            photo_ids=photo_ids,
+            photo_ids=[p.filename for p in photo_rows],
             image_descriptions=image_descriptions
-            )
-        
+        )
+
         result = create_basic_structured_observation(observation_id, observation_input)
+
+        for photo_row in photo_rows:
+            session.add(photo_row)
+        session.flush()
+
+        result.photo_ids = [photo_row.id for photo_row in photo_rows]
         session.add(result)
         session.commit()
         session.refresh(result)
@@ -58,7 +70,7 @@ def create_observation(
     finally:
         for path in tmp_paths:
             os.unlink(path)
-
+    
 
 @app.get("/observations/{observation_id}", response_model=StructuredObservation)
 def get_observation(observation_id: str, session: Session = Depends(get_session)):

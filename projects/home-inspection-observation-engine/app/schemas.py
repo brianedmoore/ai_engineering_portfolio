@@ -39,6 +39,7 @@ class HomeSystem(str, Enum):
     GARAGE = "Garage"
     OTHER = "Other"
 
+
 class ResponsibleProfessional(str, Enum):
     HOMEOWNER_DIY = "Homeowner/DIY"
     HANDYMAN = "Handyman"
@@ -63,6 +64,7 @@ class EstimatedCostRange(str, Enum):
     SEVEN_FIFTY_TO_2500 = "$750-$2,500"
     OVER_2500 = "$2,500+"
     UNKNOWN = "Unknown"
+
 
 class ObservationInput(BaseModel):
     text_description: Optional[str] = Field(
@@ -116,7 +118,15 @@ class ObservationInput(BaseModel):
             missing.append("A typed description or audio transcript is required.")
 
         return missing
-    
+
+
+class Photo(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_keys=True)
+    observation_id: str
+    filename: str
+    data: bytes
+
+
 class LLMObservationOutput(BaseModel):
     """Fields the LLM classifies. Used to enforce structured output via SDK tool use / json_schema mode."""
     title: str
@@ -149,7 +159,7 @@ class StructuredObservation(SQLModel, table=True):
     recommended_action: Optional[str] = None
     responsible_professional: Optional[ResponsibleProfessional] = None
     estimated_cost_range: Optional[EstimatedCostRange] = None
-    photo_ids: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    photo_ids: Optional[List[int]] = Field(default=None, sa_column=Column(JSON))
     image_descriptions: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     source_input_type: Optional[SourceInputType] = None
     confidence: float = Field(default=0.0)
