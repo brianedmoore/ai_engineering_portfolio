@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form, Response
 from typing import List, Optional
 from sqlmodel import Session, select
 import tempfile
@@ -88,6 +88,13 @@ def list_observations(status: Optional[ObservationStatus] = None, limit: int = 1
     observations = session.exec(query.offset(offset).limit(limit)).all()
     return observations
     
+@app.get("/observations/{observation_id}/photos/{photo_id}")
+def get_observation_photo(observation_id: str, photo_id: int, session: Session = Depends(get_session)):
+    photo = session.get(Photo, photo_id)
+    if not photo or photo.observation_id != observation_id:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return Response(content=photo.data, media_type=photo.content_type)
+
 
 @app.post("/transcribe")
 def transcribe(file: UploadFile = File(...)):
