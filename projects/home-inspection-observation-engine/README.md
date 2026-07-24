@@ -233,6 +233,37 @@ Returns:
 
 Supported formats: jpg, jpeg, png, gif, webp.
 
+## Running with Docker
+
+Build the image:
+
+```bash
+docker build -t home-inspection-engine .
+```
+
+Run the server, passing your API keys as environment variables:
+
+```bash
+docker run -p 8000:8000 \
+  -e LLM_PROVIDER=anthropic \
+  -e ANTHROPIC_API_KEY=your_key_here \
+  -e OPENAI_API_KEY=your_key_here \
+  home-inspection-engine
+```
+
+Open the interactive docs at `http://localhost:8000/docs`.
+
+By default, `observations.db` lives inside the container and is lost when the container stops. To persist data across restarts, mount a local file:
+
+```bash
+docker run -p 8000:8000 \
+  -e LLM_PROVIDER=anthropic \
+  -e ANTHROPIC_API_KEY=your_key_here \
+  -e OPENAI_API_KEY=your_key_here \
+  -v $(pwd)/observations.db:/app/observations.db \
+  home-inspection-engine
+```
+
 ## Viewing the Database
 
 Observations are persisted to `observations.db` (SQLite) in the project folder. The file is created automatically on first server startup.
