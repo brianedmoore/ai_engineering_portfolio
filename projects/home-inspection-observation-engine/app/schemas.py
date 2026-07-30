@@ -13,6 +13,14 @@ class ObservationStatus(str, Enum):
     REJECTED = "Rejected"
 
 
+class RejectionReason(str, Enum):
+    BAD_PHOTO = "bad_photo"
+    BAD_AUDIO = "bad_audio"
+    BAD_TEXT = "bad_text"
+    DUPLICATE = "duplicate"
+    OTHER = "other"
+
+    
 class Severity(str, Enum):
     LOW = "Low"
     MEDIUM = "Medium"
@@ -171,3 +179,5 @@ class StructuredObservation(SQLModel, table=True):
     audio_transcript: Optional[str] = None
     created_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
+    rejection_reason: Optional[RejectionReason] = None
+    rejection_note: Optional[str] = None

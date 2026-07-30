@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 import tempfile
 import os
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
@@ -149,16 +149,24 @@ def approve_observation(observation_id: str, session: Session = Depends(get_sess
 
 
 @app.post("/observations/{observation_id}/reject", response_model=StructuredObservation)
-def reject_observation(observation_id: str, session: Session = Depends(get_session)):
+def reject_observation(
+    observation_id: str,
+    reason: RejectionReason,
+    notes: Optional[str] = None,
+    session: Session = Depends(get_session)):
     observation = session.get(StructuredObservation, observation_id)
     if not observation:
         raise HTTPException(status_code=404, detail="Observation not found")
     if observation.status != ObservationStatus.READY_FOR_REVIEW:
         raise HTTPException(status_code=400, detail=f"Cannot reject an observation with status '{observation.status}'")
+    if reason == RejectionReason.OTHER and not notes:
+        raise HTTPException(status_code=422, detail="notes is required when reason is 'other'")
     observation.status = ObservationStatus.REJECTED
     observation.needs_human_review = False
     observation.reviewed_at = datetime.now(timezone.utc)
-    
+    observation.rejection_reason = reason
+    observation.rejection_notes = notes
+
     session.add(observation)
     session.commit()
     session.refresh(observation)
