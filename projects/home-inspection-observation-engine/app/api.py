@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 import tempfile
 import os
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
@@ -172,6 +172,23 @@ def reject_observation(
     session.refresh(observation)
     return observation
 
+
+@app.patch("/observations/{observation_id}", response_model=StructuredObservation)
+def patch_observation(observation_id: str, patch: ObservationPatch, session: Session = Depends(get_session)):
+    observation = session.get(StructuredObservation, observation_id)
+    if not observation:
+        raise HTTPException(status_code=404, detail="Observation not found")
+    if observation.status != ObservationStatus.READY_FOR_REVIEW:
+        raise HTTPException(status_code=400, detail=f"Cannot edit observation with status '{observation.status}")
+    updates = patch.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(observation, field, value)
+    observation.status = ObservationStatus.NEEDS_REVISION
+    observation.reviewed_at = datetime.now(timezone.utc)
+    session.add(observation)
+    session.commit()
+    session.refresh(observation)
+    return observation
 
 @app.delete("/observations/{observation_id}", status_code=204)
 def delete_observation(observation_id: str, session: Session = Depends(get_session)):

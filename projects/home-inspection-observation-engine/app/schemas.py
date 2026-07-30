@@ -11,6 +11,7 @@ class ObservationStatus(str, Enum):
     READY_FOR_REVIEW = "Ready for Review"
     APPROVED = "Approved"
     REJECTED = "Rejected"
+    NEEDS_REVISION = "Needs Revision"
 
 
 class RejectionReason(str, Enum):
@@ -181,3 +182,18 @@ class StructuredObservation(SQLModel, table=True):
     reviewed_at: Optional[datetime] = None
     rejection_reason: Optional[RejectionReason] = None
     rejection_note: Optional[str] = None
+
+
+class ObservationPatch(SQLModel):
+    title: Optional[str] = None
+    room_or_area: Optional[str] = None
+    system: Optional[HomeSystem] = None
+    component: Optional[str] = None
+    defect_type: Optional[str] = None
+    severity: Optional[Severity] = None
+    safety_related: Optional[bool] = None
+    professional_report_description: Optional[str] = None
+    plain_english_summary: Optional[str] = None
+    recommended_action: Optional[str] = None
+    responsible_professional: Optional[ResponsibleProfessional] = None
+    estimated_cost_range: Optional[EstimatedCostRange] = None
