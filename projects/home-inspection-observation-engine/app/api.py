@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form, Response
 from typing import List, Optional
+from datetime import datetime, timezone
 from sqlmodel import Session, select
 import tempfile
 import os
@@ -57,6 +58,7 @@ def create_observation(
         result = create_basic_structured_observation(observation_id, observation_input)
         result.text_description = text_description
         result.audio_transcript = audio_transcript
+        result.created_at = datetime.now(timezone.utc)
 
         for photo_row in photo_rows:
             session.add(photo_row)
@@ -138,6 +140,8 @@ def approve_observation(observation_id: str, session: Session = Depends(get_sess
         raise HTTPException(status_code=400, detail=f"Cannot approve an observation with status '{observation.status}'")
     observation.status = ObservationStatus.APPROVED
     observation.needs_human_review = False
+    observation.reviewed_at = datetime.now(timezone.utc)
+
     session.add(observation)
     session.commit()
     session.refresh(observation)
@@ -153,6 +157,8 @@ def reject_observation(observation_id: str, session: Session = Depends(get_sessi
         raise HTTPException(status_code=400, detail=f"Cannot reject an observation with status '{observation.status}'")
     observation.status = ObservationStatus.REJECTED
     observation.needs_human_review = False
+    observation.reviewed_at = datetime.now(timezone.utc)
+    
     session.add(observation)
     session.commit()
     session.refresh(observation)

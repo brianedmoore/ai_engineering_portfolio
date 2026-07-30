@@ -1,4 +1,5 @@
 from enum import Enum
+from datetime import datetime, timezone
 from typing import List, Optional
 from pydantic import BaseModel
 from sqlmodel import SQLModel, Field
@@ -168,3 +169,5 @@ class StructuredObservation(SQLModel, table=True):
     missing_information: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     text_description: Optional[str] = None
     audio_transcript: Optional[str] = None
+    created_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
