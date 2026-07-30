@@ -55,6 +55,8 @@ def create_observation(
         )
 
         result = create_basic_structured_observation(observation_id, observation_input)
+        result.text_description = text_description
+        result.audio_transcript = audio_transcript
 
         for photo_row in photo_rows:
             session.add(photo_row)

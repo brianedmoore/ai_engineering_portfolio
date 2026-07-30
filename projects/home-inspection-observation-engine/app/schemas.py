@@ -166,3 +166,5 @@ class StructuredObservation(SQLModel, table=True):
     confidence: float = Field(default=0.0)
     needs_human_review: bool = True
     missing_information: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    text_description: Optional[str] = None
+    audio_transcript: Optional[str] = None
