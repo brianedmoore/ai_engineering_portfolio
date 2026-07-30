@@ -182,6 +182,7 @@ class StructuredObservation(SQLModel, table=True):
     reviewed_at: Optional[datetime] = None
     rejection_reason: Optional[RejectionReason] = None
     rejection_note: Optional[str] = None
+    llm_usage: Optional[List[dict]] = Field(default=None, sa_column=Column(JSON))
 
 
 class ObservationPatch(SQLModel):

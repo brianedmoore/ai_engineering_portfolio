@@ -5,6 +5,7 @@ from app.schemas import (
 from app.workflow_status import determine_observation_status
 from app.llm_client import get_client, get_llm_provider
 from app.prompts import SYSTEM_PROMPT, build_observation_prompt
+from app.token_tracking import extract_token_usage
 
 
 def create_basic_structured_observation(observation_id: str, observation_input: ObservationInput) -> StructuredObservation:
@@ -39,6 +40,7 @@ def create_basic_structured_observation(observation_id: str, observation_input: 
             tool_choice={"type": "tool", "name": "submit_observation"}
         )
         data = response.content[0].input
+        usage = extract_token_usage(response, provider, "claude-sonnet-5")
 
     elif provider == "openai":
         response = client.chat.completions.create(
@@ -57,6 +59,7 @@ def create_basic_structured_observation(observation_id: str, observation_input: 
             }
         )
         data = json.loads(response.choices[0].message.content)
+        usage = extract_token_usage(response, provider, "gpt-4o")
 
     result = LLMObservationOutput(**data)
 
@@ -79,5 +82,6 @@ def create_basic_structured_observation(observation_id: str, observation_input: 
         missing_information=[],
         photo_ids=observation_input.photo_ids,
         image_descriptions=observation_input.image_descriptions or [],
-        source_input_type=observation_input.source_input_type
+        source_input_type=observation_input.source_input_type,
+        llm_usage=[usage.to_dict()]
     )
