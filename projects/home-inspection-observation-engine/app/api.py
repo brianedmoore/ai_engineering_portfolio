@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form, Res
 from typing import List, Optional
 from datetime import datetime, timezone
 from sqlmodel import Session, select
+import time
 import tempfile
 import os
 from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch
@@ -31,9 +32,11 @@ def create_observation(
     session: Session = Depends(get_session)):
     tmp_paths = []
     try:
+        t_total_start = time.perf_counter()
         image_descriptions = []
         photo_rows = []
 
+        t_image_start = time.perf_counter()
         for photo in photos:
             photo_bytes = photo.file.read()
             suffix = os.path.splitext(photo.filename)[1]
@@ -47,7 +50,8 @@ def create_observation(
                 content_type=photo.content_type or "image/jpeg",
                 data=photo_bytes
             ))
-
+        t_image_ms = round((time.perf_counter() - t_image_start) * 1000)
+        
         observation_input = ObservationInput(
             text_description=text_description,
             audio_transcript=audio_transcript,
@@ -55,10 +59,17 @@ def create_observation(
             image_descriptions=image_descriptions
         )
 
+        t_llm_start = time.perf_counter()
         result = create_basic_structured_observation(observation_id, observation_input)
+        t_llm_ms = round((time.perf_counter() - t_llm_start) * 1000)
         result.text_description = text_description
         result.audio_transcript = audio_transcript
         result.created_at = datetime.now(timezone.utc)
+        result.timings_ms = {
+            "image_analysis_ms": t_image_ms,
+            "llm_call_ms": t_llm_ms,
+            "total_ms": round((time.perf_counter() - t_total_start) * 1000)
+        }
 
         for photo_row in photo_rows:
             session.add(photo_row)
@@ -179,7 +190,7 @@ def patch_observation(observation_id: str, patch: ObservationPatch, session: Ses
     if not observation:
         raise HTTPException(status_code=404, detail="Observation not found")
     if observation.status != ObservationStatus.READY_FOR_REVIEW:
-        raise HTTPException(status_code=400, detail=f"Cannot edit observation with status '{observation.status}")
+        raise HTTPException(status_code=400, detail=f"Cannot edit observation with status '{observation.status}'")
     updates = patch.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(observation, field, value)

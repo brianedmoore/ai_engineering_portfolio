@@ -181,9 +181,10 @@ class StructuredObservation(SQLModel, table=True):
     created_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
     rejection_reason: Optional[RejectionReason] = None
-    rejection_note: Optional[str] = None
+    rejection_notes: Optional[str] = None
     llm_usage: Optional[List[dict]] = Field(default=None, sa_column=Column(JSON))
-
+    timings_ms: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    
 
 class ObservationPatch(SQLModel):
     title: Optional[str] = None
