@@ -34,7 +34,7 @@ export default function CapturePage() {
             />
             {photoPreview ? (
               <>
-                <img src={photoPreview} alt="Preview" className="w-full h-48 object-cover" />
+                <img src={photoPreview} alt="Preview" className="w-full max-h-64 object-cover" />
                 <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Photo added</span>
               </>
             ) : (
