@@ -1,4 +1,14 @@
+import { useState, useRef } from 'react'
+
 export default function CapturePage() {
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoPreview(URL.createObjectURL(file))
+  }
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-lg mx-auto px-4 py-10">
@@ -11,10 +21,29 @@ export default function CapturePage() {
         <div className="flex flex-col gap-4">
 
           {/* Photo tile */}
-          <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-gray-400 transition-colors min-h-40">
-            <div className="text-3xl">📷</div>
-            <p className="text-sm font-medium text-gray-700">Upload a photo</p>
-            <p className="text-xs text-gray-400">Tap to choose a file</p>
+          <div
+            onClick={() => photoInputRef.current?.click()}
+            className="bg-white rounded-2xl border border-dashed border-gray-300 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors min-h-40 relative"
+          >
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
+            {photoPreview ? (
+              <>
+                <img src={photoPreview} alt="Preview" className="w-full h-48 object-cover" />
+                <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Photo added</span>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 h-40">
+                <div className="text-3xl">📷</div>
+                <p className="text-sm font-medium text-gray-700">Upload a photo</p>
+                <p className="text-xs text-gray-400">Tap to choose a file</p>
+              </div>
+            )}
           </div>
 
           {/* Audio tile */}
