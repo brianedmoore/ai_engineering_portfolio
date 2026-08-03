@@ -139,7 +139,7 @@ def test_reject_other_requires_notes(engine):
         session.commit()
 
     response = client.post("/observations/test_008/reject?reason=other")
-    assert response.status_code == 442
+    assert response.status_code == 422
 
 def test_reject_other_with_notes_succeeds(engine):
     with Session(engine) as session:
