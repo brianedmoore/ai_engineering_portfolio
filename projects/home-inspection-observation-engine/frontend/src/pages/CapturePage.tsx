@@ -55,14 +55,14 @@ export default function CapturePage() {
     if (!canSubmit || !photoPreview) return
     setIsSubmitting(true)
 
+    const observationId = crypto.randomUUID()
     const formData = new FormData()
     const photoInput = photoInputRef.current
-    if (photoInput?.files?.[0]) formData.append('photo_files', photoInput.files[0])
-    if (audioBlob) formData.append('audio_file', audioBlob, 'recording.webm')
+    if (photoInput?.files?.[0]) formData.append('photos', photoInput.files[0])
     if (text.trim()) formData.append('text_description', text.trim())
 
     try {
-      const res = await fetch('http://localhost:8000/observations', {
+      const res = await fetch(`http://localhost:8000/observations?observation_id=${observationId}`, {
         method: 'POST',
         body: formData,
       })
