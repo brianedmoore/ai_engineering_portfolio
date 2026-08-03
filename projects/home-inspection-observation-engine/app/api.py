@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 import time
 import tempfile
 import os
+from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
@@ -17,6 +18,12 @@ app = FastAPI(
     version="0.1.0"
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=os.get_env("CORS_ORIGINS", "http://localhost:3000").split(","),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.on_event("startup")
 def on_startup():
