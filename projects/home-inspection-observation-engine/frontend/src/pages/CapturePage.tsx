@@ -4,6 +4,8 @@ export default function CapturePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [text, setText] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const [audioReady, setAudioReady] = useState(false)
+  const canSubmit = photoPreview !== null && (text.trim().length > 0 || audioReady)
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -73,12 +75,23 @@ export default function CapturePage() {
         </div>
 
         {/* Submit button */}
-        <button
-          disabled
-          className="mt-6 w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white opacity-40 cursor-not-allowed transition-colors"
-        >
-          Submit Observation
-        </button>
+        <div className="mt-6">
+          {!canSubmit && (
+            <p className="text-xs text-center text-gray-400 mb-2">
+              {!photoPreview ? 'Add a photo to continue' : 'Add a note or recording to continue'}
+            </p>
+          )}
+          <button
+            disabled={!canSubmit}
+            className={`w-full py-3 rounded-2xl text-sm font-semibold transition-colors ${
+              canSubmit
+                ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
+                : 'bg-blue-600 text-white opacity-40 cursor-not-allowed'
+            }`}
+          >
+            Submit Observation
+          </button>
+        </div>
 
       </div>
     </div>
