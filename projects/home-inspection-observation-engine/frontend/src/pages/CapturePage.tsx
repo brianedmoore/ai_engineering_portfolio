@@ -6,12 +6,48 @@ export default function CapturePage() {
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [audioReady, setAudioReady] = useState(false)
   const canSubmit = photoPreview !== null && (text.trim().length > 0 || audioReady)
+  const [isRecording, setIsRecording] = useState(false)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const audioInputRef = useRef<HTMLInputElement>(null)
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setPhotoPreview(URL.createObjectURL(file))
   }
+
+  async function startRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const recorder = new MediaRecorder(stream)
+    audioChunksRef.current = []
+
+    recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data)
+    recorder.onstop = () => {
+      const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+      setAudioBlob(blob)
+      setAudioReady(true)
+      stream.getTracks().forEach(t => t.stop())
+    }
+
+    mediaRecorderRef.current = recorder
+    recorder.start()
+    setIsRecording(true)
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop()
+    setIsRecording(false)
+  }
+
+  function handleAudioUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAudioBlob(file)
+    setAudioReady(true)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-lg mx-auto px-4 py-10">
@@ -50,13 +86,42 @@ export default function CapturePage() {
           </div>
 
           {/* Audio tile */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center justify-center gap-3">
-            <button className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center hover:bg-blue-500 transition-colors">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center justify-center gap-3 relative">
+            {audioReady && (
+              <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Audio added</span>
+            )}
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={handleAudioUpload}
+            />
+            <button
+              onMouseDown={startRecording}
+              onMouseUp={stopRecording}
+              onMouseLeave={stopRecording}
+              onTouchStart={(e) => { e.preventDefault(); startRecording() }}
+              onTouchEnd={stopRecording}
+              className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
+                isRecording ? 'bg-red-500 scale-110' : 'bg-blue-600 hover:bg-blue-500'
+              }`}
+            >
               <span className="text-white text-xl">🎙</span>
             </button>
-            <p className="text-sm font-medium text-gray-700">Tap to record</p>
-            <p className="text-xs text-gray-400 underline cursor-pointer">or upload an audio file</p>
+            <p className="text-sm font-medium text-gray-700">
+              {isRecording ? 'Recording... release to stop' : audioReady ? 'Recording saved' : 'Hold to record'}
+            </p>
+            {!audioReady && (
+              <p
+                onClick={() => audioInputRef.current?.click()}
+                className="text-xs text-gray-400 underline cursor-pointer"
+              >
+                or upload an audio file
+              </p>
+            )}
           </div>
+              
 
           {/* Text tile */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 relative">
