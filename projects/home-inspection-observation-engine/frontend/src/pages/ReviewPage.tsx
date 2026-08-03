@@ -28,6 +28,12 @@ const severityColors: Record<string, string> = {
   High: 'bg-red-100 text-red-700',
 }
 
+const SEVERITY_OPTIONS = ['Low', 'Medium', 'High']
+const SYSTEM_OPTIONS = ['Roofing', 'Exterior', 'Structure', 'Electrical', 'Plumbing', 'HVAC', 'Interior', 'Insulation and Ventilation', 'Appliances', 'Site and Grounds', 'Garage', 'Other']
+const RESPONSIBLE_OPTIONS = ['Homeowner/DIY', 'Handyman', 'Plumber', 'Electrician', 'HVAC Technician', 'Roofer', 'Structural Engineer', 'Foundation Contractor', 'General Contractor', 'Appliance Technician', 'Pest Control Professional', 'Mold/Water Mitigation Professional', 'Qualified Specialist', 'Further Evaluation Recommended']
+const COST_OPTIONS = ['$0-$100', '$100-$300', '$300-$750', '$750-$2,500', '$2,500+', 'Unknown']
+const BOOL_OPTIONS = ['Yes', 'No']
+
 export default function ReviewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -42,19 +48,25 @@ export default function ReviewPage() {
       .then(data => { setObs(data); setLoading(false) })
   }, [id])
 
-  function startEdit(field: string, currentValue: string | null) {
+  function startEdit(field: string, currentValue: string | boolean | null) {
     setEditingField(field)
-    setEditValue(currentValue ?? '')
+    if (typeof currentValue === 'boolean') {
+      setEditValue(currentValue ? 'Yes' : 'No')
+    } else {
+      setEditValue(currentValue ?? '')
+    }
   }
 
   async function saveEdit() {
     if (!editingField || !obs) return
+    const value: string | boolean | null =
+      editingField === 'safety_related' ? editValue === 'Yes' : editValue || null
     await fetch(`http://localhost:8000/observations/${obs.observation_id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [editingField]: editValue || null }),
+      body: JSON.stringify({ [editingField]: value }),
     })
-    setObs({ ...obs, [editingField]: editValue || null })
+    setObs({ ...obs, [editingField]: value } as Observation)
     setEditingField(null)
   }
 
@@ -79,8 +91,7 @@ export default function ReviewPage() {
   }
 
   const severityColor = severityColors[obs.severity ?? ''] ?? 'bg-gray-100 text-gray-700'
-
-  const editProps = { editingField, editValue, onStartEdit: startEdit, onSave: saveEdit, onCancel: cancelEdit, onChange: setEditValue }
+  const ep = { editingField, editValue, onStartEdit: startEdit, onSave: saveEdit, onCancel: cancelEdit, onChange: setEditValue }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -90,7 +101,7 @@ export default function ReviewPage() {
           ← New observation
         </button>
 
-        {/* Header */}
+        {/* Header — reflects live obs state, updates when fields are saved */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{obs.title ?? 'Untitled'}</h1>
           <div className="flex flex-wrap gap-2">
@@ -106,34 +117,40 @@ export default function ReviewPage() {
           {/* Summary */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Summary</p>
-            <TextBlock value={obs.plain_english_summary} fieldKey="plain_english_summary" {...editProps} />
+            <TextBlock value={obs.plain_english_summary} fieldKey="plain_english_summary" {...ep} />
           </div>
 
           {/* Professional Description */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Professional Description</p>
-            <TextBlock value={obs.professional_report_description} fieldKey="professional_report_description" {...editProps} />
+            <TextBlock value={obs.professional_report_description} fieldKey="professional_report_description" {...ep} />
           </div>
 
-          {/* Details */}
+          {/* Details — all patchable fields */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Details</p>
             <div className="flex flex-col divide-y divide-gray-50">
-              <EditableRow label="Component" value={obs.component} fieldKey="component" {...editProps} />
-              <EditableRow label="Defect Type" value={obs.defect_type} fieldKey="defect_type" {...editProps} />
-              <EditableRow label="Recommended Action" value={obs.recommended_action} fieldKey="recommended_action" multiline {...editProps} />
-              <Row label="Responsible Professional" value={obs.responsible_professional} />
-              <Row label="Estimated Cost" value={obs.estimated_cost_range} />
+              <EditableRow label="Title"                    value={obs.title}                   fieldKey="title"                    {...ep} />
+              <EditableRow label="Room / Area"              value={obs.room_or_area}             fieldKey="room_or_area"             {...ep} />
+              <EditableRow label="System"                   value={obs.system}                   fieldKey="system"        type="select" options={SYSTEM_OPTIONS}      {...ep} />
+              <EditableRow label="Component"                value={obs.component}                fieldKey="component"                {...ep} />
+              <EditableRow label="Defect Type"              value={obs.defect_type}              fieldKey="defect_type"              {...ep} />
+              <EditableRow label="Severity"                 value={obs.severity}                 fieldKey="severity"      type="select" options={SEVERITY_OPTIONS}     {...ep} />
+              <EditableRow label="Safety Issue"             value={obs.safety_related === null ? null : obs.safety_related ? 'Yes' : 'No'} fieldKey="safety_related" type="select" options={BOOL_OPTIONS} {...ep} />
+              <EditableRow label="Recommended Action"       value={obs.recommended_action}       fieldKey="recommended_action"       multiline {...ep} />
+              <EditableRow label="Responsible Professional" value={obs.responsible_professional} fieldKey="responsible_professional" type="select" options={RESPONSIBLE_OPTIONS} {...ep} />
+              <EditableRow label="Estimated Cost"           value={obs.estimated_cost_range}     fieldKey="estimated_cost_range"    type="select" options={COST_OPTIONS} {...ep} />
             </div>
           </div>
 
-          {/* AI Assessment */}
+          {/* AI Assessment — read only */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">AI Assessment</p>
             <div className="flex flex-col divide-y divide-gray-50">
-              <Row label="Confidence" value={`${Math.round(obs.confidence * 100)}%`} />
+              <Row label="Confidence"         value={`${Math.round(obs.confidence * 100)}%`} />
               <Row label="Needs Human Review" value={obs.needs_human_review ? 'Yes' : 'No'} />
-              <Row label="Input Type" value={obs.source_input_type} />
+              <Row label="Input Type"         value={obs.source_input_type} />
+              <Row label="Status"             value={obs.status} />
             </div>
           </div>
 
@@ -157,13 +174,13 @@ export default function ReviewPage() {
 type EditProps = {
   editingField: string | null
   editValue: string
-  onStartEdit: (field: string, value: string | null) => void
+  onStartEdit: (field: string, value: string | boolean | null) => void
   onSave: () => void
   onCancel: () => void
   onChange: (value: string) => void
 }
 
-function TextBlock({ value, fieldKey, editingField, editValue, onStartEdit, onSave, onCancel, onChange }: { value: string | null | undefined; fieldKey: string; multiline?: boolean } & EditProps) {
+function TextBlock({ value, fieldKey, editingField, editValue, onStartEdit, onSave, onCancel, onChange }: { value: string | null | undefined; fieldKey: string } & EditProps) {
   const isEditing = editingField === fieldKey
   if (isEditing) {
     return (
@@ -181,7 +198,9 @@ function TextBlock({ value, fieldKey, editingField, editValue, onStartEdit, onSa
   )
 }
 
-function EditableRow({ label, value, fieldKey, multiline = false, editingField, editValue, onStartEdit, onSave, onCancel, onChange }: { label: string; value: string | null | undefined; fieldKey: string; multiline?: boolean } & EditProps) {
+function EditableRow({ label, value, fieldKey, type = 'text', multiline = false, options = [], editingField, editValue, onStartEdit, onSave, onCancel, onChange }: {
+  label: string; value: string | null | undefined; fieldKey: string; type?: 'text' | 'select'; multiline?: boolean; options?: string[]
+} & EditProps) {
   const isEditing = editingField === fieldKey
   return (
     <div className="py-3 first:pt-0 last:pb-0">
@@ -189,7 +208,11 @@ function EditableRow({ label, value, fieldKey, multiline = false, editingField, 
         <span className="text-xs text-gray-400 shrink-0 mt-1">{label}</span>
         {isEditing ? (
           <div className="flex-1 flex flex-col gap-2">
-            {multiline ? (
+            {type === 'select' ? (
+              <select value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 outline-none bg-white">
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            ) : multiline ? (
               <textarea rows={3} value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 resize-none outline-none" autoFocus />
             ) : (
               <input type="text" value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 outline-none" autoFocus />
