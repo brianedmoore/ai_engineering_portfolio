@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 export default function CapturePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -6,6 +7,8 @@ export default function CapturePage() {
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [audioReady, setAudioReady] = useState(false)
   const canSubmit = photoPreview !== null && (text.trim().length > 0 || audioReady)
+  const navigate = useNavigate()
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -47,6 +50,30 @@ export default function CapturePage() {
     setAudioBlob(file)
     setAudioReady(true)
   }
+
+  async function handleSubmit() {
+    if (!canSubmit || !photoPreview) return
+    setIsSubmitting(true)
+
+    const formData = new FormData()
+    const photoInput = photoInputRef.current
+    if (photoInput?.files?.[0]) formData.append('photo_files', photoInput.files[0])
+    if (audioBlob) formData.append('audio_file', audioBlob, 'recording.webm')
+    if (text.trim()) formData.append('text_description', text.trim())
+
+    try {
+      const res = await fetch('http://localhost:8000/observations', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      navigate(`/review/${data.observation_id}`)
+    } catch (err) {
+      console.error('Submit failed:', err)
+      setIsSubmitting(false)
+    }
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -147,14 +174,15 @@ export default function CapturePage() {
             </p>
           )}
           <button
-            disabled={!canSubmit}
+            disabled={!canSubmit || isSubmitting}
+            onClick={handleSubmit}
             className={`w-full py-3 rounded-2xl text-sm font-semibold transition-colors ${
-              canSubmit
+              canSubmit && !isSubmitting
                 ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
                 : 'bg-blue-600 text-white opacity-40 cursor-not-allowed'
             }`}
           >
-            Submit Observation
+            {isSubmitting ? 'Processing...' : 'Submit Observation'}
           </button>
         </div>
 
