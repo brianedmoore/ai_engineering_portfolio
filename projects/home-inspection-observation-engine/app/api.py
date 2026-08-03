@@ -194,7 +194,8 @@ def patch_observation(observation_id: str, patch: ObservationPatch, session: Ses
     updates = patch.model_dump(exclude_unset=True)
     for field, value in updates.items():
         setattr(observation, field, value)
-    observation.status = ObservationStatus.NEEDS_REVISION
+    observation.status = ObservationStatus.APPROVED
+    observation.needs_human_review = False
     observation.reviewed_at = datetime.now(timezone.utc)
     session.add(observation)
     session.commit()

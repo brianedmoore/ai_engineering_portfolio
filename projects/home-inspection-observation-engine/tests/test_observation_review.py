@@ -159,7 +159,7 @@ def test_reject_other_with_notes_succeeds(engine):
 
 # PATCH
 
-def test_patch_sets_needs_revision_and_updates_fields(engine):
+def test_patch_edit_approves_observation(engine):
     with Session(engine) as session:
         obs = StructuredObservation(
             observation_id="test_010",
@@ -172,7 +172,7 @@ def test_patch_sets_needs_revision_and_updates_fields(engine):
 
     response = client.patch("/observations/test_010", json={"severity": "Low", "component": "Roof"})
     assert response.status_code == 200
-    assert response.json()["status"] == "Needs Revision"
+    assert response.json()["status"] == "Approved"
     assert response.json()["severity"] == "Low"
     assert response.json()["component"] == "Roof"
     assert response.json()["reviewed_at"] is not None
