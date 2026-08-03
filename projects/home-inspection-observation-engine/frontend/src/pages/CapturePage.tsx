@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 
 export default function CapturePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [text, setText] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -56,10 +57,15 @@ export default function CapturePage() {
           </div>
 
           {/* Text tile */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 relative">
+            {text.length > 0 && (
+              <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Note added</span>
+            )}
             <textarea
               rows={4}
               placeholder="Describe what you found..."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
               className="w-full text-sm text-gray-800 placeholder-gray-400 resize-none outline-none"
             />
           </div>
