@@ -13,7 +13,7 @@ export default function CapturePage() {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [_audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioInputRef = useRef<HTMLInputElement>(null)
@@ -37,7 +37,6 @@ export default function CapturePage() {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     const recorder = new MediaRecorder(stream)
     audioChunksRef.current = []
-
     recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data)
     recorder.onstop = () => {
       const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
@@ -45,7 +44,6 @@ export default function CapturePage() {
       setAudioReady(true)
       stream.getTracks().forEach(t => t.stop())
     }
-
     mediaRecorderRef.current = recorder
     recorder.start()
     setIsRecording(true)
@@ -69,10 +67,22 @@ export default function CapturePage() {
     setIsSubmitComplete(false)
 
     const observationId = crypto.randomUUID()
+
+    // Transcribe audio first if present
+    let audioTranscript = ''
+    if (audioBlob) {
+      const transcribeForm = new FormData()
+      transcribeForm.append('file', audioBlob, 'recording.webm')
+      const transcribeRes = await fetch(`${API_URL}/transcribe`, { method: 'POST', body: transcribeForm })
+      const transcribeData = await transcribeRes.json()
+      audioTranscript = transcribeData.transcript ?? ''
+    }
+
     const formData = new FormData()
     const photoInput = photoInputRef.current
     if (photoInput?.files?.[0]) formData.append('photos', photoInput.files[0])
     if (text.trim()) formData.append('text_description', text.trim())
+    if (audioTranscript) formData.append('audio_transcript', audioTranscript)
 
     try {
       const res = await fetch(`${API_URL}/observations?observation_id=${observationId}`, {
@@ -210,6 +220,17 @@ export default function CapturePage() {
                         <line x1="8" y1="23" x2="16" y2="23"/>
                       </svg>
                     </button>
+                    {isRecording && (
+                      <div className="flex items-end justify-center gap-[3px] w-full" style={{ height: '40px' }}>
+                        {Array.from({ length: 20 }, (_, i) => (
+                          <div
+                            key={i}
+                            className="rounded-full w-2.5 animate-waveform"
+                            style={{ height: '40px', backgroundColor: '#2563EB', animationDelay: `${i * 0.05}s` }}
+                          />
+                        ))}
+                      </div>
+                    )}
                     <p className="text-base font-semibold text-slate-700">
                       {isRecording ? 'Recording — release to stop' : audioReady ? 'Recording saved' : 'Hold to record'}
                     </p>
@@ -316,6 +337,7 @@ const STEP_DELAYS = [2500, 5500, 10000, 15000]
 
 function LoadingOverlay({ isComplete }: { isComplete: boolean }) {
   const [completedCount, setCompletedCount] = useState(0)
+  const [dots, setDots] = useState('.')
 
   useEffect(() => {
     const timers = STEP_DELAYS.map((delay, i) =>
@@ -327,6 +349,11 @@ function LoadingOverlay({ isComplete }: { isComplete: boolean }) {
   useEffect(() => {
     if (isComplete) setCompletedCount(STEPS.length)
   }, [isComplete])
+
+  useEffect(() => {
+    const interval = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 450)
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#FAF9F6' }}>
@@ -386,7 +413,7 @@ function LoadingOverlay({ isComplete }: { isComplete: boolean }) {
               <span className={`text-base font-semibold transition-colors duration-300 ${
                 done ? 'text-slate-800' : active ? 'text-slate-800' : 'text-slate-300'
               }`}>
-                {label}
+                {active ? `${label}${dots}` : label}
               </span>
             </div>
           )

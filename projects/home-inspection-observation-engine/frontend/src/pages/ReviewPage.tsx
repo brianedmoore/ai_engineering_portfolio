@@ -22,6 +22,7 @@ type Observation = {
   needs_human_review: boolean
   missing_information: string[] | null
   source_input_type: string | null
+  photo_ids: number[] | null
 }
 
 const severityColors: Record<string, string> = {
@@ -49,6 +50,7 @@ export default function ReviewPage() {
   const [rejectNotes, setRejectNotes] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [photoFullscreen, setPhotoFullscreen] = useState(false)
   const [editedFields, setEditedFields] = useState<Set<string>>(new Set())
   const [flashingField, setFlashingField] = useState<string | null>(null)
   const detailsRef = useRef<HTMLDivElement>(null)
@@ -150,7 +152,26 @@ export default function ReviewPage() {
   return (
     <div className="min-h-screen bg-offwhite">
       <Header />
-      <div className="max-w-lg mx-auto px-4 py-8">
+
+      {/* Fullscreen photo overlay */}
+      {photoFullscreen && obs.photo_ids && obs.photo_ids.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setPhotoFullscreen(false)}
+        >
+          <img src={`${API_URL}/observations/${obs.observation_id}/photos/${obs.photo_ids[0]}`} alt="Inspection photo" className="max-w-full max-h-full object-contain rounded-lg" />
+          <button
+            className="absolute top-5 right-5 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+            onClick={() => setPhotoFullscreen(false)}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      )}
+
+      <div className={`max-w-lg mx-auto px-4 py-8 ${showRejectForm ? 'pb-96' : 'pb-44'}`}>
 
         <button onClick={() => navigate('/')} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
           ← New observation
@@ -183,6 +204,21 @@ export default function ReviewPage() {
               ))}
             </div>
             <p className="text-red-400 text-sm font-semibold mt-3">Tap to review fields ↓</p>
+          </div>
+        )}
+
+        {obs.photo_ids && obs.photo_ids.length > 0 && (
+          <div
+            className="mb-6 rounded-2xl overflow-hidden cursor-pointer active:opacity-90 transition-opacity relative"
+            onClick={() => setPhotoFullscreen(true)}
+          >
+            <img src={`${API_URL}/observations/${obs.observation_id}/photos/${obs.photo_ids[0]}`} alt="Inspection photo" className="w-full object-cover" />
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3 flex items-center gap-2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+              </svg>
+              <span className="text-white text-sm font-semibold">Tap to view full screen</span>
+            </div>
           </div>
         )}
 
@@ -231,7 +267,7 @@ export default function ReviewPage() {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">AI Assessment</p>
             <div className="flex flex-col divide-y divide-slate-50">
-              <Row label="Confidence"         value={`${Math.round(obs.confidence * 100)}%`} />
+              <ConfidenceBar value={obs.confidence} />
               <Row label="Needs Human Review" value={obs.needs_human_review ? 'Yes' : 'No'} />
               <Row label="Input Type"         value={formatInputType(obs.source_input_type)} />
               <Row label="Status"             value={obs.status} />
@@ -240,8 +276,11 @@ export default function ReviewPage() {
 
         </div>
 
-        {/* Actions */}
-        <div className="mt-6 flex flex-col gap-3">
+      </div>
+
+      {/* Sticky approve / reject bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/95 backdrop-blur-sm border-t border-slate-100" style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
+        <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-3">
           <button
             onClick={handleApprove}
             disabled={isApproving}
@@ -251,8 +290,8 @@ export default function ReviewPage() {
             {isApproving ? 'Approving...' : 'Approve Observation'}
           </button>
           {showRejectForm ? (
-            <div className="bg-white rounded-2xl border border-red-100 p-5 flex flex-col gap-4 shadow-sm">
-              <p className="text-base font-semibold text-slate-800">Reason for rejection</p>
+            <div className="bg-slate-50 rounded-2xl border border-red-100 p-4 flex flex-col gap-3">
+              <p className="text-sm font-semibold text-slate-800">Reason for rejection</p>
               <select
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
@@ -266,7 +305,7 @@ export default function ReviewPage() {
               </select>
               {rejectReason === 'other' && (
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Describe the reason..."
                   value={rejectNotes}
                   onChange={e => setRejectNotes(e.target.value)}
@@ -274,10 +313,7 @@ export default function ReviewPage() {
                 />
               )}
               <div className="flex gap-3">
-                <button
-                  onClick={() => setShowRejectForm(false)}
-                  className="flex-1 py-3 rounded-xl text-base text-slate-400 hover:text-slate-600"
-                >
+                <button onClick={() => setShowRejectForm(false)} className="flex-1 py-3 rounded-xl text-base text-slate-400 hover:text-slate-600">
                   Cancel
                 </button>
                 <button
@@ -365,6 +401,23 @@ function EditableRow({ label, value, fieldKey, type = 'text', multiline = false,
             <button onClick={() => onStartEdit(fieldKey, value ?? null)} className="text-slate-300 hover:text-blue-500 text-lg">✏</button>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function ConfidenceBar({ value }: { value: number }) {
+  const pct = Math.round(value * 100)
+  const color = pct >= 80 ? '#2C5F2E' : pct >= 55 ? '#d97706' : '#ef4444'
+  const label = pct >= 80 ? 'High' : pct >= 55 ? 'Medium' : 'Low'
+  return (
+    <div className="py-3.5 first:pt-0 last:pb-0 flex flex-col gap-2">
+      <div className="flex justify-between items-center">
+        <span className="text-sm text-slate-400 font-medium">AI Confidence</span>
+        <span className="text-sm font-bold" style={{ color }}>{label} · {pct}%</span>
+      </div>
+      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color, transition: 'width 0.8s ease-out' }} />
       </div>
     </div>
   )

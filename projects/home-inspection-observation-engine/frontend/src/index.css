@@ -34,3 +34,13 @@ body {
   stroke-dasharray: 20 8;
   animation: river-dash 0.7s linear infinite;
 }
+
+@keyframes waveform-pulse {
+  0%, 100% { transform: scaleY(0.12); opacity: 0.3; }
+  50% { transform: scaleY(1); opacity: 0.85; }
+}
+
+.animate-waveform {
+  animation: waveform-pulse 1s ease-in-out infinite;
+  transform-origin: bottom;
+}
