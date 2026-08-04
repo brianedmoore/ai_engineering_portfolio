@@ -81,8 +81,7 @@ export default function ReviewPage() {
     await fetch(`http://localhost:8000/observations/${obs.observation_id}/approve`, {
       method: 'POST',
     })
-    setObs({ ...obs, status: 'Approved' })
-    setIsApproving(false)
+    navigate('/')
   }
 
   if (loading) {
@@ -168,35 +167,20 @@ export default function ReviewPage() {
         </div>
 
         {/* Actions */}
-        <div className="mt-6 flex flex-col gap-3">
-          {obs.status === 'Approved' ? (
-            <div className="flex flex-col gap-3">
-              <div className="w-full py-3 rounded-2xl text-sm font-semibold bg-green-100 text-green-700 text-center">
-                ✓ Observation Approved
-              </div>
-              <button
-                onClick={() => navigate('/')}
-                className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer"
-              >
-                Start Next Observation
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={handleApprove}
-              disabled={isApproving}
-              className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-40"
-            >
-              {isApproving ? 'Approving...' : 'Approve Observation'}
-            </button>
-          )}
-          <button className="w-full py-3 rounded-2xl text-sm font-semibold border border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
-            Reject
-          </button>
-        </div>
-
+      <div className="mt-6 flex flex-col gap-3">
+        <button
+          onClick={handleApprove}
+          disabled={isApproving}
+          className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-40"
+        >
+          {isApproving ? 'Approving...' : 'Approve Observation'}
+        </button>
+        <button className="w-full py-3 rounded-2xl text-sm font-semibold border border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
+          Reject
+        </button>
       </div>
     </div>
+  </div>
   )
 }
 

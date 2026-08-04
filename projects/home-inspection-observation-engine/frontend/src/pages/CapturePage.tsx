@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function CapturePage() {
@@ -14,6 +14,13 @@ export default function CapturePage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioInputRef = useRef<HTMLInputElement>(null)
+  const [approvedCount, setApprovedCount] = useState(0)
+
+  useEffect(() => {
+    fetch('http://localhost:8000/observations?status=Approved')
+      .then(r => r.json())
+      .then(data => setApprovedCount(data.length))
+  }, [])
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -79,9 +86,16 @@ export default function CapturePage() {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-lg mx-auto px-4 py-10">
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">New Observation</h1>
-          <p className="text-sm text-gray-500 mt-1">Add a photo and a note or recording to continue.</p>
+        <div className="mb-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">New Observation</h1>
+            <p className="text-sm text-gray-500 mt-1">Add a photo and a note or recording to continue.</p>
+          </div>
+          {approvedCount > 0 && (
+            <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mt-1">
+              ✓ {approvedCount} approved
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col gap-4">
