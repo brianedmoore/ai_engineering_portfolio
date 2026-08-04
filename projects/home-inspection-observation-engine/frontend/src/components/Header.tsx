@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import logoIcon from '../assets/logo-icon.png'
 
 type HeaderProps = {
@@ -15,12 +16,13 @@ export default function Header({ approvedCount }: HeaderProps) {
           </span>
         </div>
         {approvedCount !== undefined && approvedCount > 0 && (
-          <span
-            className="text-sm font-semibold px-3 py-1.5 rounded-full"
+          <Link
+            to="/list"
+            className="text-sm font-semibold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
             style={{ backgroundColor: '#EBF2EC', color: '#2C5F2E' }}
           >
             ✓ {approvedCount} approved
-          </span>
+          </Link>
         )}
       </div>
     </header>

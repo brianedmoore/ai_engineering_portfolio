@@ -17,6 +17,11 @@ export default function CapturePage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioInputRef = useRef<HTMLInputElement>(null)
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null)
+  const [recordedBlobUrl, setRecordedBlobUrl] = useState<string | null>(null)
+  const [waveformBars, setWaveformBars] = useState<number[]>([])
+  const [isPlayingBack, setIsPlayingBack] = useState(false)
+  const [playbackProgress, setPlaybackProgress] = useState(0)
   const [approvedCount, setApprovedCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [isSubmitComplete, setIsSubmitComplete] = useState(false)
@@ -38,11 +43,14 @@ export default function CapturePage() {
     const recorder = new MediaRecorder(stream)
     audioChunksRef.current = []
     recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data)
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
       setAudioBlob(blob)
       setAudioReady(true)
       stream.getTracks().forEach(t => t.stop())
+      const url = URL.createObjectURL(blob)
+      setRecordedBlobUrl(url)
+      setWaveformBars(await extractWaveform(blob))
     }
     mediaRecorderRef.current = recorder
     recorder.start()
@@ -54,11 +62,75 @@ export default function CapturePage() {
     setIsRecording(false)
   }
 
-  function handleAudioUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleAudioUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     setAudioBlob(file)
     setAudioReady(true)
+    const url = URL.createObjectURL(file)
+    setRecordedBlobUrl(url)
+    setWaveformBars(await extractWaveform(file))
+  }
+
+  function clearRecording() {
+    if (recordedBlobUrl) URL.revokeObjectURL(recordedBlobUrl)
+    setAudioBlob(null)
+    setAudioReady(false)
+    setRecordedBlobUrl(null)
+    setWaveformBars([])
+    setIsPlayingBack(false)
+    setPlaybackProgress(0)
+  }
+
+  function togglePlayback() {
+    const player = audioPlayerRef.current
+    if (!player) return
+    if (isPlayingBack) {
+      player.pause()
+      setIsPlayingBack(false)
+    } else {
+      player.play().catch(() => {})
+      setIsPlayingBack(true)
+    }
+  }
+
+  function seekToFraction(fraction: number) {
+    const player = audioPlayerRef.current
+    if (!player || !player.duration) return
+    const clamped = Math.max(0, Math.min(1, fraction))
+    player.currentTime = clamped * player.duration
+    setPlaybackProgress(clamped)
+  }
+
+  function handleWaveformClick(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    seekToFraction((e.clientX - rect.left) / rect.width)
+  }
+
+  function handleWaveformTouch(e: React.TouchEvent<HTMLDivElement>) {
+    e.preventDefault()
+    const rect = e.currentTarget.getBoundingClientRect()
+    seekToFraction((e.touches[0].clientX - rect.left) / rect.width)
+  }
+
+  async function extractWaveform(blob: Blob): Promise<number[]> {
+    try {
+      const arrayBuffer = await blob.arrayBuffer()
+      const tempCtx = new AudioContext()
+      const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer)
+      tempCtx.close()
+      const data = audioBuffer.getChannelData(0)
+      const BAR_COUNT = 40
+      const step = Math.floor(data.length / BAR_COUNT)
+      const peaks = Array.from({ length: BAR_COUNT }, (_, i) => {
+        const chunk = data.slice(i * step, (i + 1) * step)
+        return Math.sqrt(chunk.reduce((s, v) => s + v * v, 0) / chunk.length)
+      })
+      const max = Math.max(...peaks, 0.001)
+      return peaks.map(v => v / max)
+    } catch {
+      return Array(40).fill(0.15)
+    }
   }
 
   async function handleSubmit() {
@@ -71,11 +143,23 @@ export default function CapturePage() {
     // Transcribe audio first if present
     let audioTranscript = ''
     if (audioBlob) {
-      const transcribeForm = new FormData()
-      transcribeForm.append('file', audioBlob, 'recording.webm')
-      const transcribeRes = await fetch(`${API_URL}/transcribe`, { method: 'POST', body: transcribeForm })
-      const transcribeData = await transcribeRes.json()
-      audioTranscript = transcribeData.transcript ?? ''
+      try {
+        const transcribeForm = new FormData()
+        transcribeForm.append('file', audioBlob, 'recording.webm')
+        const transcribeRes = await fetch(`${API_URL}/transcribe`, { method: 'POST', body: transcribeForm })
+        if (!transcribeRes.ok) throw new Error(`status ${transcribeRes.status}`)
+        const transcribeData = await transcribeRes.json()
+        audioTranscript = transcribeData.transcript?.trim() ?? ''
+        if (!audioTranscript) {
+          setError('No speech detected in your recording. Please re-record in a quieter environment, or add a text note instead.')
+          setIsSubmitting(false)
+          return
+        }
+      } catch {
+        setError('Could not transcribe your audio. Please re-record clearly or switch to a text note.')
+        setIsSubmitting(false)
+        return
+      }
     }
 
     const formData = new FormData()
@@ -103,7 +187,7 @@ export default function CapturePage() {
 
   return (
     <div className="min-h-screen bg-offwhite">
-      {isSubmitting && <LoadingOverlay isComplete={isSubmitComplete} />}
+      {isSubmitting && <LoadingOverlay isComplete={isSubmitComplete} hasAudio={audioReady} />}
       <Header approvedCount={approvedCount} />
       <div className="max-w-lg mx-auto px-4 py-8">
 
@@ -185,62 +269,108 @@ export default function CapturePage() {
                 {/* Audio tile — horizontal connector branches from bracket bar */}
                 <div className="relative">
                   <div className="absolute border-t-2 border-dashed border-sky-300 opacity-50" style={{ left: '-10px', width: '8px', top: '50%', transform: 'translateY(-50%)' }} />
-                  <div className="bg-sky-50 rounded-2xl border border-sky-200 px-6 py-8 flex flex-col items-center justify-center gap-4 relative">
-                    {audioReady && (
-                      <span
-                        className="absolute top-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-full"
-                        style={{ backgroundColor: '#2C5F2E' }}
-                      >
-                        ✓ Audio added
-                      </span>
-                    )}
-                    <input
-                      ref={audioInputRef}
-                      type="file"
-                      accept="audio/*"
+                  <div className="bg-sky-50 rounded-2xl border border-sky-200 overflow-hidden relative">
+                    <input ref={audioInputRef} type="file" accept="audio/*" className="hidden" onChange={handleAudioUpload} />
+                    <audio
+                      ref={audioPlayerRef}
+                      src={recordedBlobUrl ?? undefined}
+                      onEnded={() => { setIsPlayingBack(false); setPlaybackProgress(1) }}
+                      onTimeUpdate={(e) => {
+                        const a = e.currentTarget
+                        if (a.duration) setPlaybackProgress(a.currentTime / a.duration)
+                      }}
                       className="hidden"
-                      onChange={handleAudioUpload}
                     />
-                    <button
-                      onMouseDown={startRecording}
-                      onMouseUp={stopRecording}
-                      onMouseLeave={stopRecording}
-                      onTouchStart={(e) => { e.preventDefault(); startRecording() }}
-                      onTouchEnd={stopRecording}
-                      className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
-                        isRecording
-                          ? 'bg-red-500 scale-110 shadow-red-200'
-                          : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200'
-                      }`}
-                    >
-                      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="2" width="6" height="11" rx="3"/>
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                        <line x1="12" y1="19" x2="12" y2="23"/>
-                        <line x1="8" y1="23" x2="16" y2="23"/>
-                      </svg>
-                    </button>
-                    {isRecording && (
-                      <div className="flex items-end justify-center gap-[3px] w-full" style={{ height: '40px' }}>
-                        {Array.from({ length: 20 }, (_, i) => (
+                    {audioReady ? (
+                      <div className="px-5 py-5 flex flex-col gap-4">
+                        {/* Scrubable waveform with playhead */}
+                        <div
+                          className="relative flex items-center gap-[2px] w-full cursor-pointer select-none"
+                          style={{ height: '56px' }}
+                          onClick={handleWaveformClick}
+                          onTouchMove={handleWaveformTouch}
+                        >
+                          {waveformBars.map((h, i) => {
+                            const isPast = (i / waveformBars.length) < playbackProgress
+                            return (
+                              <div
+                                key={i}
+                                className="rounded-full flex-1 transition-colors duration-75"
+                                style={{
+                                  height: `${Math.max(3, h * 52)}px`,
+                                  backgroundColor: isPast ? '#2563EB' : '#bfdbfe',
+                                  opacity: isPast ? (0.5 + h * 0.5) : (0.4 + h * 0.4),
+                                }}
+                              />
+                            )
+                          })}
+                          {/* Playhead */}
                           <div
-                            key={i}
-                            className="rounded-full w-2.5 animate-waveform"
-                            style={{ height: '40px', backgroundColor: '#2563EB', animationDelay: `${i * 0.05}s` }}
+                            className="absolute top-0 bottom-0 w-0.5 rounded-full pointer-events-none"
+                            style={{ left: `${playbackProgress * 100}%`, backgroundColor: '#1d4ed8' }}
                           />
-                        ))}
+                        </div>
+                        {/* Controls */}
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={togglePlayback}
+                            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm active:scale-95 transition-all"
+                            style={{ backgroundColor: '#2563EB' }}
+                          >
+                            {isPlayingBack ? (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                                <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+                              </svg>
+                            ) : (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                                <polygon points="5,3 19,12 5,21"/>
+                              </svg>
+                            )}
+                          </button>
+                          <div className="flex-1 flex flex-col">
+                            <span className="text-sm font-semibold text-slate-700">Recording saved</span>
+                            <span className="text-xs text-slate-400">Tap play to review</span>
+                          </div>
+                          <button onClick={clearRecording} className="text-sm font-semibold text-red-400 hover:text-red-500 active:scale-95 transition-all">
+                            Re-record
+                          </button>
+                        </div>
                       </div>
-                    )}
-                    <p className="text-base font-semibold text-slate-700">
-                      {isRecording ? 'Recording — release to stop' : audioReady ? 'Recording saved' : 'Hold to record'}
-                    </p>
-                    {!audioReady && (
-                      <p
-                        onClick={() => audioInputRef.current?.click()}
-                        className="text-sm text-slate-400 underline cursor-pointer hover:text-slate-600"
-                      >
-                        or upload an audio file
-                      </p>
+                    ) : (
+                      <div className="px-6 py-8 flex flex-col items-center justify-center gap-4">
+                        <button
+                          onMouseDown={startRecording}
+                          onMouseUp={stopRecording}
+                          onMouseLeave={stopRecording}
+                          onTouchStart={(e) => { e.preventDefault(); startRecording() }}
+                          onTouchEnd={stopRecording}
+                          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
+                            isRecording
+                              ? 'bg-red-500 scale-110 shadow-red-200'
+                              : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200'
+                          }`}
+                        >
+                          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="9" y="2" width="6" height="11" rx="3"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                          </svg>
+                        </button>
+                        {isRecording && (
+                          <div className="flex items-end justify-center gap-[3px] w-full" style={{ height: '40px' }}>
+                            {Array.from({ length: 20 }, (_, i) => (
+                              <div key={i} className="rounded-full w-2.5 animate-waveform" style={{ height: '40px', backgroundColor: '#2563EB', animationDelay: `${i * 0.05}s` }} />
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-base font-semibold text-slate-700">
+                          {isRecording ? 'Recording — release to stop' : 'Hold to record'}
+                        </p>
+                        <p onClick={() => audioInputRef.current?.click()} className="text-sm text-slate-400 underline cursor-pointer hover:text-slate-600">
+                          or upload an audio file
+                        </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -326,16 +456,12 @@ export default function CapturePage() {
   )
 }
 
-const STEPS = [
-  'Analyzing photo',
-  'Reading your notes',
-  'Identifying defects',
-  'Classifying severity',
-  'Generating report',
-]
 const STEP_DELAYS = [2500, 5500, 10000, 15000]
 
-function LoadingOverlay({ isComplete }: { isComplete: boolean }) {
+function LoadingOverlay({ isComplete, hasAudio }: { isComplete: boolean; hasAudio: boolean }) {
+  const STEPS = hasAudio
+    ? ['Transcribing audio', 'Analyzing photo', 'Identifying defects', 'Classifying severity', 'Generating report']
+    : ['Analyzing photo', 'Reading your notes', 'Identifying defects', 'Classifying severity', 'Generating report']
   const [completedCount, setCompletedCount] = useState(0)
   const [dots, setDots] = useState('.')
 

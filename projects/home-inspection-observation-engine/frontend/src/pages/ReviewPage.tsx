@@ -54,12 +54,17 @@ export default function ReviewPage() {
   const [editedFields, setEditedFields] = useState<Set<string>>(new Set())
   const [flashingField, setFlashingField] = useState<string | null>(null)
   const detailsRef = useRef<HTMLDivElement>(null)
+  const [localMissingInfo, setLocalMissingInfo] = useState<string[]>([])
 
   useEffect(() => {
     fetch(`${API_URL}/observations/${id}`)
       .then(r => r.json())
       .then(data => { setObs(data); setLoading(false) })
   }, [id])
+
+  useEffect(() => {
+    setLocalMissingInfo(obs?.missing_information ?? [])
+  }, [obs?.observation_id])
 
   function startEdit(field: string, currentValue: string | boolean | null) {
     setEditingField(field)
@@ -82,6 +87,25 @@ export default function ReviewPage() {
       })
       setObs({ ...obs, [editingField]: value } as Observation)
       setEditedFields(prev => new Set([...prev, editingField]))
+      if (value) {
+        const fieldKeywords: Record<string, string[]> = {
+          plain_english_summary: ['summary', 'description', 'transcript'],
+          professional_report_description: ['description', 'professional', 'report'],
+          title: ['title'],
+          room_or_area: ['room', 'area', 'location'],
+          component: ['component'],
+          defect_type: ['defect'],
+          recommended_action: ['action', 'recommend'],
+          responsible_professional: ['professional'],
+          estimated_cost_range: ['cost'],
+        }
+        const keywords = fieldKeywords[editingField] ?? []
+        if (keywords.length > 0) {
+          setLocalMissingInfo(prev =>
+            prev.filter(item => !keywords.some(k => item.toLowerCase().includes(k)))
+          )
+        }
+      }
       setFlashingField(editingField)
       setTimeout(() => setFlashingField(null), 1200)
       setEditingField(null)
@@ -148,6 +172,8 @@ export default function ReviewPage() {
 
   const severityColor = severityColors[obs.severity ?? ''] ?? 'bg-gray-100 text-gray-700'
   const ep = { editingField, editValue, onStartEdit: startEdit, onSave: saveEdit, onCancel: cancelEdit, onChange: setEditValue, flashingField, editedFields }
+  const isAlreadyApproved = obs.status === 'Approved'
+  const showActions = !isAlreadyApproved || editedFields.size > 0
 
   return (
     <div className="min-h-screen bg-offwhite">
@@ -171,7 +197,7 @@ export default function ReviewPage() {
         </div>
       )}
 
-      <div className={`max-w-lg mx-auto px-4 py-8 ${showRejectForm ? 'pb-96' : 'pb-44'}`}>
+      <div className={`max-w-lg mx-auto px-4 py-8 ${showActions ? (showRejectForm ? 'pb-96' : 'pb-44') : 'pb-8'}`}>
 
         <button onClick={() => navigate('/')} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
           ← New observation
@@ -183,7 +209,7 @@ export default function ReviewPage() {
           </div>
         )}
 
-        {obs.missing_information && obs.missing_information.length > 0 && (
+        {localMissingInfo.length > 0 && (
           <div
             className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 mb-5 cursor-pointer active:scale-[0.99] transition-transform"
             onClick={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -194,13 +220,23 @@ export default function ReviewPage() {
                 <line x1="12" y1="9" x2="12" y2="13"/>
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
-              <p className="text-red-700 font-bold text-base">
-                {obs.missing_information.length} field{obs.missing_information.length > 1 ? 's' : ''} need your attention
+              <p className="text-red-700 font-bold text-base flex-1">
+                {localMissingInfo.length} field{localMissingInfo.length > 1 ? 's' : ''} need your attention
               </p>
             </div>
             <div className="flex flex-col gap-2">
-              {obs.missing_information.map((item, i) => (
-                <p key={i} className="text-red-600 text-sm leading-relaxed pl-1">• {item} — Please fill this in manually.</p>
+              {localMissingInfo.map((item, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <p className="text-red-600 text-sm leading-relaxed pl-1 flex-1">• {item}</p>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setLocalMissingInfo(prev => prev.filter((_, j) => j !== i)) }}
+                    className="text-red-300 hover:text-red-500 shrink-0 mt-0.5 transition-colors"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
               ))}
             </div>
             <p className="text-red-400 text-sm font-semibold mt-3">Tap to review fields ↓</p>
@@ -278,16 +314,19 @@ export default function ReviewPage() {
 
       </div>
 
-      {/* Sticky approve / reject bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/95 backdrop-blur-sm border-t border-slate-100" style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
+      {/* Sticky approve / reject bar — hidden when already approved with no edits */}
+      {showActions && <div className="fixed bottom-0 left-0 right-0 z-10 bg-white/95 backdrop-blur-sm border-t border-slate-100" style={{ boxShadow: '0 -4px 20px rgba(0,0,0,0.06)' }}>
         <div className="max-w-lg mx-auto px-4 py-4 flex flex-col gap-3">
+          {isAlreadyApproved && editedFields.size > 0 && (
+            <p className="text-center text-xs text-slate-400 font-medium -mb-1">You made edits — re-approve to confirm</p>
+          )}
           <button
             onClick={handleApprove}
             disabled={isApproving}
             className="w-full py-4 rounded-2xl text-base font-bold text-white transition-all active:scale-[0.97] cursor-pointer disabled:opacity-40 shadow-md"
             style={{ backgroundColor: '#2C5F2E' }}
           >
-            {isApproving ? 'Approving...' : 'Approve Observation'}
+            {isApproving ? 'Approving...' : isAlreadyApproved && editedFields.size > 0 ? 'Re-approve' : 'Approve Observation'}
           </button>
           {showRejectForm ? (
             <div className="bg-slate-50 rounded-2xl border border-red-100 p-4 flex flex-col gap-3">
@@ -334,7 +373,7 @@ export default function ReviewPage() {
             </button>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }
