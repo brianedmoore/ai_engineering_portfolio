@@ -23,11 +23,14 @@ export default function ListPage() {
   const navigate = useNavigate()
   const [observations, setObservations] = useState<ObsSummary[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
+  const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetch(`${API_URL}/observations?status=Approved`)
       .then(r => r.json())
-      .then(data => { setObservations(data); setLoading(false) })
+      .then(data => { setObservations([...data].reverse()); setLoading(false) })
+      .catch(() => { setFetchError(true); setLoading(false) })
   }, [])
 
   return (
@@ -39,7 +42,7 @@ export default function ListPage() {
         </button>
         <div className="mb-6">
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Approved Observations</h1>
-          {!loading && (
+          {!loading && observations.length > 0 && (
             <p className="text-slate-400 mt-1 text-sm">{observations.length} observation{observations.length !== 1 ? 's' : ''} total</p>
           )}
         </div>
@@ -47,6 +50,10 @@ export default function ListPage() {
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-6 h-6 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
+          </div>
+        ) : fetchError ? (
+          <div className="text-center py-16">
+            <p className="text-slate-400 text-base">Couldn't load observations. Check your connection and try again.</p>
           </div>
         ) : observations.length === 0 ? (
           <div className="text-center py-16">
@@ -60,15 +67,16 @@ export default function ListPage() {
             {observations.map((obs, idx) => (
               <div
                 key={obs.observation_id}
-                onClick={() => navigate(`/review/${obs.observation_id}`)}
+                onClick={() => navigate(`/review/${obs.observation_id}`, { state: { from: 'list' } })}
                 className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex gap-4 cursor-pointer active:scale-[0.99] transition-transform"
               >
                 {/* Photo or placeholder */}
-                {obs.photo_ids && obs.photo_ids.length > 0 ? (
+                {obs.photo_ids && obs.photo_ids.length > 0 && !failedPhotos.has(obs.observation_id) ? (
                   <img
                     src={`${API_URL}/observations/${obs.observation_id}/photos/${obs.photo_ids[0]}`}
                     alt=""
                     className="w-16 h-16 rounded-xl object-cover shrink-0"
+                    onError={() => setFailedPhotos(prev => new Set(prev).add(obs.observation_id))}
                   />
                 ) : (
                   <div className="w-16 h-16 rounded-xl bg-slate-100 shrink-0 flex items-center justify-center">

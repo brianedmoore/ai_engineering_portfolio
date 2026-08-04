@@ -5,14 +5,18 @@ import Header from '../components/Header'
 import logoIcon from '../assets/logo-icon.png'
 
 export default function CapturePage() {
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [activePreviewIndex, setActivePreviewIndex] = useState(0)
   const [text, setText] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const addMoreInputRef = useRef<HTMLInputElement>(null)
   const [audioReady, setAudioReady] = useState(false)
-  const canSubmit = photoPreview !== null && (text.trim().length > 0 || audioReady)
+  const canSubmit = photoPreviews.length > 0 && (text.trim().length > 0 || audioReady)
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
@@ -24,6 +28,7 @@ export default function CapturePage() {
   const [playbackProgress, setPlaybackProgress] = useState(0)
   const [approvedCount, setApprovedCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [audioError, setAudioError] = useState<string | null>(null)
   const [isSubmitComplete, setIsSubmitComplete] = useState(false)
 
   useEffect(() => {
@@ -32,14 +37,54 @@ export default function CapturePage() {
       .then(data => setApprovedCount(data.length))
   }, [])
 
+  useEffect(() => {
+    if (!isRecording) { setRecordingSeconds(0); return }
+    const interval = setInterval(() => setRecordingSeconds(s => s + 1), 1000)
+    return () => clearInterval(interval)
+  }, [isRecording])
+
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setPhotoPreview(URL.createObjectURL(file))
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    photoPreviews.forEach(url => URL.revokeObjectURL(url))
+    setPhotoPreviews(files.map(f => URL.createObjectURL(f)))
+    setPhotoFiles(files)
+    setActivePreviewIndex(0)
+    e.target.value = ''
+  }
+
+  function handleAddMore(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    setPhotoPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))])
+    setPhotoFiles(prev => [...prev, ...files])
+    e.target.value = ''
+  }
+
+  function removePhoto(index: number) {
+    URL.revokeObjectURL(photoPreviews[index])
+    const next = photoPreviews.filter((_, i) => i !== index)
+    setPhotoPreviews(next)
+    setPhotoFiles(prev => prev.filter((_, i) => i !== index))
+    setActivePreviewIndex(prev => Math.min(prev, Math.max(0, next.length - 1)))
   }
 
   async function startRecording() {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    setAudioError(null)
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch (err) {
+      const name = err instanceof Error ? err.name : ''
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+        setAudioError('Microphone access denied. Allow microphone access in your browser settings, or use a text note instead.')
+      } else if (name === 'NotFoundError') {
+        setAudioError('No microphone found. Use a text note instead.')
+      } else {
+        setAudioError('Could not access microphone. Use a text note instead.')
+      }
+      return
+    }
     const recorder = new MediaRecorder(stream)
     audioChunksRef.current = []
     recorder.ondataavailable = (e) => audioChunksRef.current.push(e.data)
@@ -134,7 +179,7 @@ export default function CapturePage() {
   }
 
   async function handleSubmit() {
-    if (!canSubmit || !photoPreview) return
+    if (!canSubmit) return
     setIsSubmitting(true)
     setIsSubmitComplete(false)
 
@@ -163,8 +208,7 @@ export default function CapturePage() {
     }
 
     const formData = new FormData()
-    const photoInput = photoInputRef.current
-    if (photoInput?.files?.[0]) formData.append('photos', photoInput.files[0])
+    photoFiles.forEach(f => formData.append('photos', f))
     if (text.trim()) formData.append('text_description', text.trim())
     if (audioTranscript) formData.append('audio_transcript', audioTranscript)
 
@@ -187,7 +231,7 @@ export default function CapturePage() {
 
   return (
     <div className="min-h-screen bg-offwhite">
-      {isSubmitting && <LoadingOverlay isComplete={isSubmitComplete} hasAudio={audioReady} />}
+      {isSubmitting && <LoadingOverlay isComplete={isSubmitComplete} hasAudio={audioReady} photoCount={photoPreviews.length} />}
       <Header approvedCount={approvedCount} />
       <div className="max-w-lg mx-auto px-4 py-8">
 
@@ -205,46 +249,105 @@ export default function CapturePage() {
 
         <div className="flex flex-col">
 
-          {/* Photo tile — step 1, always required */}
+          {/* Photo tile */}
           <div
-            onClick={() => photoInputRef.current?.click()}
-            className="bg-blue-50 rounded-2xl border-2 border-dashed border-blue-200 overflow-hidden cursor-pointer hover:border-blue-400 transition-all active:scale-[0.98] min-h-52 relative"
+            onClick={photoPreviews.length === 0 ? () => photoInputRef.current?.click() : undefined}
+            className={`bg-blue-50 rounded-2xl border-2 border-dashed border-blue-200 overflow-hidden transition-all active:scale-[0.98] min-h-52 relative ${photoPreviews.length === 0 ? 'cursor-pointer hover:border-blue-400' : ''}`}
           >
-            <input
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handlePhotoChange}
-            />
-            {photoPreview ? (
-              <>
-                <img src={photoPreview} alt="Preview" className="w-full max-h-72 object-cover" />
-                <span
-                  className="absolute top-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-full"
-                  style={{ backgroundColor: '#2C5F2E' }}
-                >
-                  ✓ Photo added
-                </span>
-                <button
-                  onClick={(e) => { e.stopPropagation(); photoInputRef.current?.click() }}
-                  className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 shadow-sm border border-slate-200 flex items-center gap-1.5 active:scale-95 transition-all"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                    <circle cx="12" cy="13" r="4"/>
-                  </svg>
-                  Retake
-                </button>
-              </>
-            ) : (
+            {/* Hidden inputs */}
+            <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoChange} />
+            <input ref={addMoreInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleAddMore} />
+
+            {photoPreviews.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 h-52">
                 <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                   <circle cx="12" cy="13" r="4"/>
                 </svg>
-                <p className="text-base font-semibold text-slate-700">Upload a photo</p>
-                <p className="text-sm text-slate-400">Tap to choose a file</p>
+                <p className="text-base font-semibold text-slate-700">Add photos</p>
+                <p className="text-sm text-slate-400">Tap to choose one or more</p>
+              </div>
+            )}
+
+            {photoPreviews.length === 1 && (
+              <>
+                <img src={photoPreviews[0]} alt="Preview" className="w-full max-h-72 object-cover" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); removePhoto(0) }}
+                  className="absolute top-3 right-3 w-8 h-8 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center active:scale-95 transition-all"
+                >
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+                  </svg>
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-3 pb-3">
+                  <span className="text-sm font-bold px-3 py-1.5 rounded-full" style={{ backgroundColor: 'rgba(44,95,46,0.88)', color: 'white' }}>
+                    ✓ Photo added
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); addMoreInputRef.current?.click() }}
+                    className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm border border-white/60 flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Add more
+                  </button>
+                </div>
+              </>
+            )}
+
+            {photoPreviews.length >= 2 && (
+              <div className="p-5 pb-4 flex flex-col gap-4">
+                {/* Card fan */}
+                <div className="relative mx-8" style={{ aspectRatio: '4/3' }}>
+                  {photoPreviews.map((url, i) => {
+                    const n = photoPreviews.length
+                    const rel = (i - activePreviewIndex + n) % n
+                    const cardStyles = [
+                      { transform: 'rotate(0deg) translate(0px,0px)', zIndex: 30, opacity: 1, shadow: '0 8px 24px rgba(0,0,0,0.18)' },
+                      { transform: 'rotate(4deg) translate(14px,5px)', zIndex: 20, opacity: 1, shadow: '0 4px 12px rgba(0,0,0,0.12)' },
+                      { transform: 'rotate(8deg) translate(26px,9px)', zIndex: 10, opacity: 0.8, shadow: '0 2px 8px rgba(0,0,0,0.08)' },
+                    ]
+                    const cs = cardStyles[Math.min(rel, 2)]
+                    const isHidden = rel >= 3
+                    return (
+                      <div
+                        key={i}
+                        className="absolute inset-0 rounded-xl overflow-hidden transition-all duration-300 select-none"
+                        style={{ transform: cs.transform, zIndex: cs.zIndex, opacity: isHidden ? 0 : cs.opacity, boxShadow: cs.shadow, pointerEvents: isHidden ? 'none' : 'auto' }}
+                        onClick={() => rel === 0 ? setActivePreviewIndex((activePreviewIndex + 1) % n) : setActivePreviewIndex(i)}
+                      >
+                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" draggable={false} />
+                        {rel === 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removePhoto(i) }}
+                            className="absolute top-2 right-2 w-7 h-7 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center active:scale-95 transition-all"
+                          >
+                            <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                              <line x1="1" y1="1" x2="11" y2="11"/><line x1="11" y1="1" x2="1" y2="11"/>
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Controls */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-bold px-3 py-1.5 rounded-full" style={{ backgroundColor: '#EBF2EC', color: '#2C5F2E' }}>
+                    ✓ {photoPreviews.length} photos · {activePreviewIndex + 1}/{photoPreviews.length}
+                  </span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); addMoreInputRef.current?.click() }}
+                    className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 shadow-sm border border-slate-200 flex items-center gap-1.5 active:scale-95 transition-all"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    Add photo
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -338,35 +441,54 @@ export default function CapturePage() {
                       </div>
                     ) : (
                       <div className="px-6 py-8 flex flex-col items-center justify-center gap-4">
-                        <button
-                          onMouseDown={startRecording}
-                          onMouseUp={stopRecording}
-                          onMouseLeave={stopRecording}
-                          onTouchStart={(e) => { e.preventDefault(); startRecording() }}
-                          onTouchEnd={stopRecording}
-                          className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
-                            isRecording
-                              ? 'bg-red-500 scale-110 shadow-red-200'
-                              : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200'
-                          }`}
-                        >
-                          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="2" width="6" height="11" rx="3"/>
-                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                            <line x1="12" y1="19" x2="12" y2="23"/>
-                            <line x1="8" y1="23" x2="16" y2="23"/>
-                          </svg>
-                        </button>
-                        {isRecording && (
-                          <div className="flex items-end justify-center gap-[3px] w-full" style={{ height: '40px' }}>
-                            {Array.from({ length: 20 }, (_, i) => (
-                              <div key={i} className="rounded-full w-2.5 animate-waveform" style={{ height: '40px', backgroundColor: '#2563EB', animationDelay: `${i * 0.05}s` }} />
-                            ))}
-                          </div>
+                        {/* Button with pulse rings */}
+                        <div className="relative flex items-center justify-center">
+                          {isRecording && (
+                            <>
+                              <div className="absolute w-20 h-20 rounded-full bg-red-400 animate-recording-pulse" />
+                              <div className="absolute w-20 h-20 rounded-full bg-red-400 animate-recording-pulse-delay" />
+                            </>
+                          )}
+                          <button
+                            onMouseDown={startRecording}
+                            onMouseUp={stopRecording}
+                            onMouseLeave={stopRecording}
+                            onTouchStart={(e) => { e.preventDefault(); startRecording() }}
+                            onTouchEnd={stopRecording}
+                            className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                              isRecording
+                                ? 'bg-red-500 scale-110 shadow-red-200'
+                                : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200'
+                            }`}
+                          >
+                            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="2" width="6" height="11" rx="3"/>
+                              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                              <line x1="12" y1="19" x2="12" y2="23"/>
+                              <line x1="8" y1="23" x2="16" y2="23"/>
+                            </svg>
+                          </button>
+                        </div>
+                        {isRecording ? (
+                          <>
+                            <div className="flex items-end justify-center gap-[3px] w-full" style={{ height: '40px' }}>
+                              {Array.from({ length: 20 }, (_, i) => (
+                                <div key={i} className="rounded-full w-2.5 animate-waveform" style={{ height: '40px', backgroundColor: '#2563EB', animationDelay: `${i * 0.05}s` }} />
+                              ))}
+                            </div>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-2xl font-bold tabular-nums" style={{ color: '#dc2626' }}>
+                                {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, '0')}
+                              </span>
+                              <span className="text-sm text-slate-400 font-medium">Release to stop</span>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-base font-semibold text-slate-700">Hold to record</p>
                         )}
-                        <p className="text-base font-semibold text-slate-700">
-                          {isRecording ? 'Recording — release to stop' : 'Hold to record'}
-                        </p>
+                        {audioError && (
+                          <p className="text-sm text-red-500 font-medium text-center px-2">{audioError}</p>
+                        )}
                         <p onClick={() => audioInputRef.current?.click()} className="text-sm text-slate-400 underline cursor-pointer hover:text-slate-600">
                           or upload an audio file
                         </p>
@@ -416,7 +538,7 @@ export default function CapturePage() {
         <div className="mt-6">
           {!canSubmit && (
             <p className="text-sm text-center mb-3 text-slate-400">
-              {!photoPreview
+              {photoPreviews.length === 0
                 ? <>Add a <span className="text-blue-700 font-bold">photo</span> to continue</>
                 : <>Add a <span className="text-sky-400 font-bold">note or recording</span> to continue</>
               }
@@ -458,10 +580,11 @@ export default function CapturePage() {
 
 const STEP_DELAYS = [2500, 5500, 10000, 15000]
 
-function LoadingOverlay({ isComplete, hasAudio }: { isComplete: boolean; hasAudio: boolean }) {
+function LoadingOverlay({ isComplete, hasAudio, photoCount }: { isComplete: boolean; hasAudio: boolean; photoCount: number }) {
+  const photoLabel = photoCount > 1 ? 'Analyzing photos' : 'Analyzing photo'
   const STEPS = hasAudio
-    ? ['Transcribing audio', 'Analyzing photo', 'Identifying defects', 'Classifying severity', 'Generating report']
-    : ['Analyzing photo', 'Reading your notes', 'Identifying defects', 'Classifying severity', 'Generating report']
+    ? ['Transcribing audio', photoLabel, 'Examining observation', 'Classifying severity', 'Generating report']
+    : [photoLabel, 'Reading your notes', 'Examining observation', 'Classifying severity', 'Generating report']
   const [completedCount, setCompletedCount] = useState(0)
   const [dots, setDots] = useState('.')
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { API_URL } from '../api'
 import Header from '../components/Header'
 
@@ -23,6 +23,7 @@ type Observation = {
   missing_information: string[] | null
   source_input_type: string | null
   photo_ids: number[] | null
+  image_descriptions: string[] | null
 }
 
 const severityColors: Record<string, string> = {
@@ -40,6 +41,8 @@ const BOOL_OPTIONS = ['Yes', 'No']
 export default function ReviewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromList = (location.state as { from?: string } | null)?.from === 'list'
   const [obs, setObs] = useState<Observation | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -51,6 +54,11 @@ export default function ReviewPage() {
   const [isRejecting, setIsRejecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [photoFullscreen, setPhotoFullscreen] = useState(false)
+  const [activePhotoIndex, setActivePhotoIndex] = useState(0)
+  const [touchStartX, setTouchStartX] = useState<number | null>(null)
+  const [dragDelta, setDragDelta] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
+  const [failedPhotoIds, setFailedPhotoIds] = useState<Set<number>>(new Set())
   const [editedFields, setEditedFields] = useState<Set<string>>(new Set())
   const [flashingField, setFlashingField] = useState<string | null>(null)
   const detailsRef = useRef<HTMLDivElement>(null)
@@ -125,7 +133,7 @@ export default function ReviewPage() {
       await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, {
         method: 'POST',
       })
-      navigate('/')
+      navigate(fromList ? '/list' : '/')
     } catch {
       setError('Failed to approve. Please try again.')
       setIsApproving(false)
@@ -141,11 +149,34 @@ export default function ReviewPage() {
       await fetch(`${API_URL}/observations/${obs.observation_id}/reject?${params}`, {
         method: 'POST',
       })
-      navigate('/')
+      navigate(fromList ? '/list' : '/')
     } catch {
       setError('Failed to reject. Please try again.')
       setIsRejecting(false)
     }
+  }
+
+  function handleCarouselTouchStart(e: React.TouchEvent) {
+    setTouchStartX(e.touches[0].clientX)
+    setIsDragging(true)
+  }
+
+  function handleCarouselTouchMove(e: React.TouchEvent) {
+    if (touchStartX === null) return
+    setDragDelta(e.touches[0].clientX - touchStartX)
+  }
+
+  function handleCarouselTouchEnd() {
+    if (obs?.photo_ids && Math.abs(dragDelta) > 50) {
+      if (dragDelta < 0 && activePhotoIndex < obs.photo_ids.length - 1) {
+        setActivePhotoIndex(p => p + 1)
+      } else if (dragDelta > 0 && activePhotoIndex > 0) {
+        setActivePhotoIndex(p => p - 1)
+      }
+    }
+    setDragDelta(0)
+    setIsDragging(false)
+    setTouchStartX(null)
   }
 
   if (loading) {
@@ -181,26 +212,76 @@ export default function ReviewPage() {
 
       {/* Fullscreen photo overlay */}
       {photoFullscreen && obs.photo_ids && obs.photo_ids.length > 0 && (
-        <div
-          className="fixed inset-0 z-50 bg-black/95 flex items-center justify-center p-4"
-          onClick={() => setPhotoFullscreen(false)}
-        >
-          <img src={`${API_URL}/observations/${obs.observation_id}/photos/${obs.photo_ids[0]}`} alt="Inspection photo" className="max-w-full max-h-full object-contain rounded-lg" />
-          <button
-            className="absolute top-5 right-5 w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
-            onClick={() => setPhotoFullscreen(false)}
+        <div className="fixed inset-0 z-50 bg-black/95 flex flex-col">
+          <div className="flex justify-end px-5 pt-5 pb-2 shrink-0">
+            <button
+              className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
+              onClick={() => setPhotoFullscreen(false)}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+          <div
+            className="flex-1 relative overflow-hidden"
+            onTouchStart={handleCarouselTouchStart}
+            onTouchMove={handleCarouselTouchMove}
+            onTouchEnd={handleCarouselTouchEnd}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+            {obs.photo_ids.map((photoId, i) => (
+              <div
+                key={photoId}
+                className="absolute inset-0 flex items-center justify-center p-4"
+                style={{
+                  transform: `translateX(calc(${(i - activePhotoIndex) * 100}% + ${dragDelta}px))`,
+                  transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                }}
+              >
+                <img
+                  src={`${API_URL}/observations/${obs.observation_id}/photos/${photoId}`}
+                  alt={`Photo ${i + 1}`}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                />
+              </div>
+            ))}
+          </div>
+          <div className="px-5 py-5 shrink-0">
+            {obs.photo_ids.length > 1 && (
+              <div className="flex justify-center gap-2 mb-3">
+                {obs.photo_ids.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActivePhotoIndex(i)}
+                    className="rounded-full transition-all duration-200"
+                    style={{
+                      width: i === activePhotoIndex ? '20px' : '8px',
+                      height: '8px',
+                      backgroundColor: i === activePhotoIndex ? 'white' : 'rgba(255,255,255,0.35)',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+            {obs.image_descriptions?.[activePhotoIndex] && (
+              <p className="text-white/60 text-sm text-center leading-relaxed mb-3">
+                {obs.image_descriptions[activePhotoIndex]}
+              </p>
+            )}
+            <button
+              className="w-full text-white/40 text-sm py-2 active:text-white/80 transition-colors"
+              onClick={() => setPhotoFullscreen(false)}
+            >
+              Tap to close
+            </button>
+          </div>
         </div>
       )}
 
       <div className={`max-w-lg mx-auto px-4 py-8 ${showActions ? (showRejectForm ? 'pb-96' : 'pb-44') : 'pb-8'}`}>
 
-        <button onClick={() => navigate('/')} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
-          ← New observation
+        <button onClick={() => navigate(fromList ? '/list' : '/')} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
+          {fromList ? '← Back to list' : '← New observation'}
         </button>
 
         {error && (
@@ -244,17 +325,77 @@ export default function ReviewPage() {
         )}
 
         {obs.photo_ids && obs.photo_ids.length > 0 && (
-          <div
-            className="mb-6 rounded-2xl overflow-hidden cursor-pointer active:opacity-90 transition-opacity relative"
-            onClick={() => setPhotoFullscreen(true)}
-          >
-            <img src={`${API_URL}/observations/${obs.observation_id}/photos/${obs.photo_ids[0]}`} alt="Inspection photo" className="w-full object-cover" />
-            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-4 py-3 flex items-center gap-2">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-              </svg>
-              <span className="text-white text-sm font-semibold">Tap to view full screen</span>
+          <div className="mb-6">
+            <div
+              className="rounded-2xl overflow-hidden relative"
+              style={{ aspectRatio: '4/3' }}
+              onTouchStart={handleCarouselTouchStart}
+              onTouchMove={handleCarouselTouchMove}
+              onTouchEnd={handleCarouselTouchEnd}
+            >
+              {obs.photo_ids.map((photoId, i) => (
+                <div
+                  key={photoId}
+                  className="absolute inset-0"
+                  style={{
+                    transform: `translateX(calc(${(i - activePhotoIndex) * 100}% + ${dragDelta}px))`,
+                    transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  }}
+                >
+                  {!failedPhotoIds.has(photoId) ? (
+                    <img
+                      src={`${API_URL}/observations/${obs.observation_id}/photos/${photoId}`}
+                      alt={`Photo ${i + 1}`}
+                      className="w-full h-full object-cover cursor-pointer active:opacity-90 transition-opacity"
+                      onClick={() => setPhotoFullscreen(true)}
+                      onError={() => setFailedPhotoIds(prev => new Set(prev).add(photoId))}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center gap-2">
+                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                        <circle cx="12" cy="13" r="4"/>
+                      </svg>
+                      <p className="text-slate-400 text-sm">Photo unavailable</p>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div
+                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-8 cursor-pointer"
+                onClick={() => setPhotoFullscreen(true)}
+              >
+                {obs.photo_ids.length > 1 && (
+                  <div className="flex justify-center gap-2 mb-2">
+                    {obs.photo_ids.map((_, i) => (
+                      <button
+                        key={i}
+                        onClick={(e) => { e.stopPropagation(); setActivePhotoIndex(i) }}
+                        className="rounded-full transition-all duration-200"
+                        style={{
+                          width: i === activePhotoIndex ? '20px' : '8px',
+                          height: '8px',
+                          backgroundColor: i === activePhotoIndex ? 'white' : 'rgba(255,255,255,0.45)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                  </svg>
+                  <span className="text-white text-sm font-semibold">
+                    {obs.photo_ids.length > 1 ? `Photo ${activePhotoIndex + 1} of ${obs.photo_ids.length} · Tap to expand` : 'Tap to view full screen'}
+                  </span>
+                </div>
+              </div>
             </div>
+            {obs.image_descriptions?.[activePhotoIndex] && (
+              <p className="text-xs text-slate-400 mt-2 px-1 leading-relaxed line-clamp-2 italic">
+                {obs.image_descriptions[activePhotoIndex]}
+              </p>
+            )}
           </div>
         )}
 

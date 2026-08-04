@@ -44,3 +44,16 @@ body {
   animation: waveform-pulse 1s ease-in-out infinite;
   transform-origin: bottom;
 }
+
+@keyframes recording-pulse {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+.animate-recording-pulse {
+  animation: recording-pulse 1.4s ease-out infinite;
+}
+
+.animate-recording-pulse-delay {
+  animation: recording-pulse 1.4s ease-out 0.55s infinite;
+}
