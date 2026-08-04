@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { API_URL } from '../api'
 
 type Observation = {
   observation_id: string
@@ -48,7 +49,7 @@ export default function ReviewPage() {
   const [isRejecting, setIsRejecting] = useState(false)
 
   useEffect(() => {
-    fetch(`http://localhost:8000/observations/${id}`)
+    fetch(`${API_URL}/observations/${id}`)
       .then(r => r.json())
       .then(data => { setObs(data); setLoading(false) })
   }, [id])
@@ -66,7 +67,7 @@ export default function ReviewPage() {
     if (!editingField || !obs) return
     const value: string | boolean | null =
       editingField === 'safety_related' ? editValue === 'Yes' : editValue || null
-    await fetch(`http://localhost:8000/observations/${obs.observation_id}`, {
+    await fetch(`${API_URL}/observations/${obs.observation_id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ [editingField]: value }),
@@ -82,7 +83,7 @@ export default function ReviewPage() {
   async function handleApprove() {
     if (!obs) return
     setIsApproving(true)
-    await fetch(`http://localhost:8000/observations/${obs.observation_id}/approve`, {
+    await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, {
       method: 'POST',
     })
     navigate('/')
@@ -93,7 +94,7 @@ export default function ReviewPage() {
     setIsRejecting(true)
     const params = new URLSearchParams({ reason: rejectReason })
     if (rejectNotes.trim()) params.append('notes', rejectNotes.trim())
-    await fetch(`http://localhost:8000/observations/${obs.observation_id}/reject?${params}`, {
+    await fetch(`${API_URL}/observations/${obs.observation_id}/reject?${params}`, {
       method: 'POST',
     })
     navigate('/')

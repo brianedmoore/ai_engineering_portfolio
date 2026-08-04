@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { API_URL } from '../api'
 
 export default function CapturePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -17,7 +18,7 @@ export default function CapturePage() {
   const [approvedCount, setApprovedCount] = useState(0)
 
   useEffect(() => {
-    fetch('http://localhost:8000/observations?status=Approved')
+    fetch(`${API_URL}/observations?status=Approved`)
       .then(r => r.json())
       .then(data => setApprovedCount(data.length))
   }, [])
@@ -69,7 +70,7 @@ export default function CapturePage() {
     if (text.trim()) formData.append('text_description', text.trim())
 
     try {
-      const res = await fetch(`http://localhost:8000/observations?observation_id=${observationId}`, {
+      const res = await fetch(`${API_URL}/observations?observation_id=${observationId}`, {
         method: 'POST',
         body: formData,
       })
