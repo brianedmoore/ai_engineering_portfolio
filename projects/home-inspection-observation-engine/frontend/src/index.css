@@ -1,5 +1,36 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@theme {
+  --color-navy: #0F1F4E;
+  --color-forest: #2C5F2E;
+  --color-forest-light: #EBF2EC;
+  --color-offwhite: #FAF9F6;
+  --color-brand-blue: #2563EB;
+}
 
 body {
   font-family: 'Inter', sans-serif;
+  background-color: #FAF9F6;
+}
+
+@keyframes flowing-marquee {
+  0% { transform: translateX(-80px); opacity: 0; }
+  12% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateX(80px); opacity: 0; }
+}
+
+.animate-flowing {
+  animation: flowing-marquee 2.8s ease-in-out infinite;
+}
+
+@keyframes river-dash {
+  0% { stroke-dashoffset: 28; }
+  100% { stroke-dashoffset: 0; }
+}
+
+.animate-river {
+  stroke-dasharray: 20 8;
+  animation: river-dash 0.7s linear infinite;
 }

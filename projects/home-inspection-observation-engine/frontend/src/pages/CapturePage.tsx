@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_URL } from '../api'
+import Header from '../components/Header'
+import logoIcon from '../assets/logo-icon.png'
 
 export default function CapturePage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -17,6 +19,7 @@ export default function CapturePage() {
   const audioInputRef = useRef<HTMLInputElement>(null)
   const [approvedCount, setApprovedCount] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitComplete, setIsSubmitComplete] = useState(false)
 
   useEffect(() => {
     fetch(`${API_URL}/observations?status=Approved`)
@@ -63,6 +66,7 @@ export default function CapturePage() {
   async function handleSubmit() {
     if (!canSubmit || !photoPreview) return
     setIsSubmitting(true)
+    setIsSubmitComplete(false)
 
     const observationId = crypto.randomUUID()
     const formData = new FormData()
@@ -76,42 +80,41 @@ export default function CapturePage() {
         body: formData,
       })
       const data = await res.json()
-      navigate(`/review/${data.observation_id}`)
+      setIsSubmitComplete(true)
+      setTimeout(() => navigate(`/review/${data.observation_id}`), 900)
     } catch (err) {
       console.error('Submit failed:', err)
       setError('Submission failed. Please check your connection and try again.')
       setIsSubmitting(false)
+      setIsSubmitComplete(false)
     }
   }
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-lg mx-auto px-4 py-10">
+    <div className="min-h-screen bg-offwhite">
+      {isSubmitting && <LoadingOverlay isComplete={isSubmitComplete} />}
+      <Header approvedCount={approvedCount} />
+      <div className="max-w-lg mx-auto px-4 py-8">
 
-        <div className="mb-8 flex items-start justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">New Observation</h1>
-            <p className="text-sm text-gray-500 mt-1">Add a photo and a note or recording to continue.</p>
-          </div>
-          {approvedCount > 0 && (
-            <span className="bg-green-100 text-green-700 text-xs font-semibold px-3 py-1 rounded-full mt-1">
-              ✓ {approvedCount} approved
-            </span>
-          )}
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">New Observation</h1>
+          <p className="text-base text-slate-400 mt-1.5 italic">
+            Add a <span className="text-blue-700 font-bold not-italic">photo</span> and a <span className="text-sky-400 font-bold not-italic">note or recording</span> to continue.
+          </p>
         </div>
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl px-4 py-3 mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-5 text-base">
             {error}
           </div>
         )}
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col">
 
-          {/* Photo tile */}
+          {/* Photo tile — step 1, always required */}
           <div
             onClick={() => photoInputRef.current?.click()}
-            className="bg-white rounded-2xl border border-dashed border-gray-300 overflow-hidden cursor-pointer hover:border-gray-400 transition-colors min-h-40 relative"
+            className="bg-blue-50 rounded-2xl border-2 border-dashed border-blue-200 overflow-hidden cursor-pointer hover:border-blue-400 transition-all active:scale-[0.98] min-h-52 relative"
           >
             <input
               ref={photoInputRef}
@@ -122,92 +125,272 @@ export default function CapturePage() {
             />
             {photoPreview ? (
               <>
-                <img src={photoPreview} alt="Preview" className="w-full max-h-64 object-cover" />
-                <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Photo added</span>
+                <img src={photoPreview} alt="Preview" className="w-full max-h-72 object-cover" />
+                <span
+                  className="absolute top-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-full"
+                  style={{ backgroundColor: '#2C5F2E' }}
+                >
+                  ✓ Photo added
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); photoInputRef.current?.click() }}
+                  className="absolute bottom-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 shadow-sm border border-slate-200 flex items-center gap-1.5 active:scale-95 transition-all"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  Retake
+                </button>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-2 h-40">
-                <div className="text-3xl">📷</div>
-                <p className="text-sm font-medium text-gray-700">Upload a photo</p>
-                <p className="text-xs text-gray-400">Tap to choose a file</p>
+              <div className="flex flex-col items-center justify-center gap-3 h-52">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <p className="text-base font-semibold text-slate-700">Upload a photo</p>
+                <p className="text-sm text-slate-400">Tap to choose a file</p>
               </div>
             )}
           </div>
 
-          {/* Audio tile */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col items-center justify-center gap-3 relative">
-            {audioReady && (
-              <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Audio added</span>
-            )}
-            <input
-              ref={audioInputRef}
-              type="file"
-              accept="audio/*"
-              className="hidden"
-              onChange={handleAudioUpload}
-            />
-            <button
-              onMouseDown={startRecording}
-              onMouseUp={stopRecording}
-              onMouseLeave={stopRecording}
-              onTouchStart={(e) => { e.preventDefault(); startRecording() }}
-              onTouchEnd={stopRecording}
-              className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors ${
-                isRecording ? 'bg-red-500 scale-110' : 'bg-blue-600 hover:bg-blue-500'
-              }`}
-            >
-              <span className="text-white text-xl">🎙</span>
-            </button>
-            <p className="text-sm font-medium text-gray-700">
-              {isRecording ? 'Recording... release to stop' : audioReady ? 'Recording saved' : 'Hold to record'}
-            </p>
-            {!audioReady && (
-              <p
-                onClick={() => audioInputRef.current?.click()}
-                className="text-xs text-gray-400 underline cursor-pointer"
-              >
-                or upload an audio file
-              </p>
-            )}
+          {/* Connector: dashed line dropping from photo to the bracket bar below */}
+          <div className="py-1" style={{ paddingLeft: '10px' }}>
+            <div className="h-5 border-l-2 border-dashed border-sky-300 opacity-50" />
           </div>
-              
 
-          {/* Text tile */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 relative">
-            {text.length > 0 && (
-              <span className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full">✓ Note added</span>
-            )}
-            <textarea
-              rows={4}
-              placeholder="Describe what you found..."
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              className="w-full text-sm text-gray-800 placeholder-gray-400 resize-none outline-none"
-            />
+          {/* Audio + Text outer box — contains both tiles, bracket bar on left shows they're siblings */}
+          <div className="bg-white rounded-3xl border border-sky-100 shadow-sm overflow-hidden">
+            <div className="flex">
+
+              {/* Left bracket column: dashed vertical bar */}
+              <div className="w-5 shrink-0 relative">
+                <div className="absolute border-l-2 border-dashed border-sky-300 opacity-50" style={{ left: '10px', top: '12px', bottom: '12px' }} />
+              </div>
+
+              {/* Tiles column */}
+              <div className="flex-1 pr-3 pt-3 pb-3 flex flex-col gap-3">
+
+                {/* Audio tile — horizontal connector branches from bracket bar */}
+                <div className="relative">
+                  <div className="absolute border-t-2 border-dashed border-sky-300 opacity-50" style={{ left: '-10px', width: '8px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <div className="bg-sky-50 rounded-2xl border border-sky-200 px-6 py-8 flex flex-col items-center justify-center gap-4 relative">
+                    {audioReady && (
+                      <span
+                        className="absolute top-3 right-3 text-white text-sm font-bold px-3 py-1.5 rounded-full"
+                        style={{ backgroundColor: '#2C5F2E' }}
+                      >
+                        ✓ Audio added
+                      </span>
+                    )}
+                    <input
+                      ref={audioInputRef}
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      onChange={handleAudioUpload}
+                    />
+                    <button
+                      onMouseDown={startRecording}
+                      onMouseUp={stopRecording}
+                      onMouseLeave={stopRecording}
+                      onTouchStart={(e) => { e.preventDefault(); startRecording() }}
+                      onTouchEnd={stopRecording}
+                      className={`w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-lg active:scale-95 ${
+                        isRecording
+                          ? 'bg-red-500 scale-110 shadow-red-200'
+                          : 'bg-blue-600 hover:bg-blue-500 shadow-blue-200'
+                      }`}
+                    >
+                      <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="2" width="6" height="11" rx="3"/>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                        <line x1="12" y1="19" x2="12" y2="23"/>
+                        <line x1="8" y1="23" x2="16" y2="23"/>
+                      </svg>
+                    </button>
+                    <p className="text-base font-semibold text-slate-700">
+                      {isRecording ? 'Recording — release to stop' : audioReady ? 'Recording saved' : 'Hold to record'}
+                    </p>
+                    {!audioReady && (
+                      <p
+                        onClick={() => audioInputRef.current?.click()}
+                        className="text-sm text-slate-400 underline cursor-pointer hover:text-slate-600"
+                      >
+                        or upload an audio file
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* OR coin */}
+                <div className="flex items-center justify-center -my-1">
+                  <span className="bg-white border border-slate-200 text-slate-400 text-xs font-bold px-4 py-1.5 rounded-full shadow-sm tracking-widest">
+                    OR
+                  </span>
+                </div>
+
+                {/* Text tile — horizontal connector branches from bracket bar */}
+                <div className="relative">
+                  <div className="absolute border-t-2 border-dashed border-sky-300 opacity-50" style={{ left: '-10px', width: '8px', top: '50%', transform: 'translateY(-50%)' }} />
+                  <div className="bg-sky-50 rounded-2xl border border-sky-200 p-5 flex flex-col gap-3">
+                    {text.length > 0 && (
+                      <div className="flex justify-end">
+                        <span
+                          className="text-white text-sm font-bold px-3 py-1.5 rounded-full"
+                          style={{ backgroundColor: '#2C5F2E' }}
+                        >
+                          ✓ Note added
+                        </span>
+                      </div>
+                    )}
+                    <textarea
+                      rows={5}
+                      placeholder="Describe what you found..."
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      className="w-full text-base text-slate-800 placeholder-slate-400 resize-none outline-none leading-relaxed bg-transparent"
+                    />
+                  </div>
+                </div>
+
+              </div>
+            </div>
           </div>
 
         </div>
 
-        {/* Submit button */}
+        {/* Submit */}
         <div className="mt-6">
           {!canSubmit && (
-            <p className="text-xs text-center text-gray-400 mb-2">
-              {!photoPreview ? 'Add a photo to continue' : 'Add a note or recording to continue'}
+            <p className="text-sm text-center mb-3 text-slate-400">
+              {!photoPreview
+                ? <>Add a <span className="text-blue-700 font-bold">photo</span> to continue</>
+                : <>Add a <span className="text-sky-400 font-bold">note or recording</span> to continue</>
+              }
             </p>
           )}
           <button
             disabled={!canSubmit || isSubmitting}
             onClick={handleSubmit}
-            className={`w-full py-3 rounded-2xl text-sm font-semibold transition-colors ${
+            style={!canSubmit ? {
+              background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
+            } : {}}
+            className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
               canSubmit && !isSubmitting
-                ? 'bg-blue-600 text-white hover:bg-blue-500 cursor-pointer'
-                : 'bg-blue-600 text-white opacity-40 cursor-not-allowed'
+                ? 'bg-blue-700 text-white hover:bg-blue-600 cursor-pointer shadow-md shadow-blue-200'
+                : 'text-slate-500 cursor-not-allowed'
             }`}
           >
-            {isSubmitting ? 'Processing...' : 'Submit Observation'}
+            <div className="flex items-center justify-center gap-3">
+              {canSubmit ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+              )}
+              <span>Submit Observation</span>
+            </div>
           </button>
         </div>
 
+      </div>
+    </div>
+  )
+}
+
+const STEPS = [
+  'Analyzing photo',
+  'Reading your notes',
+  'Identifying defects',
+  'Classifying severity',
+  'Generating report',
+]
+const STEP_DELAYS = [2500, 5500, 10000, 15000]
+
+function LoadingOverlay({ isComplete }: { isComplete: boolean }) {
+  const [completedCount, setCompletedCount] = useState(0)
+
+  useEffect(() => {
+    const timers = STEP_DELAYS.map((delay, i) =>
+      setTimeout(() => setCompletedCount(c => Math.max(c, i + 1)), delay)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  useEffect(() => {
+    if (isComplete) setCompletedCount(STEPS.length)
+  }, [isComplete])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#FAF9F6' }}>
+      <img src={logoIcon} alt="InspectFlow" className="h-40 w-auto" style={{ mixBlendMode: 'multiply' }} />
+
+      {/* "Flowing" marquee */}
+      <div className="w-full max-w-sm overflow-hidden flex justify-center h-7">
+        <span className="animate-flowing text-base font-bold tracking-[0.3em]" style={{ color: '#2563EB' }}>
+          Flowing
+        </span>
+      </div>
+
+      {/* River animation */}
+      <div className="w-full max-w-sm">
+        <svg viewBox="0 0 320 30" className="w-full" style={{ height: '30px' }}>
+          {/* River channel — soft fill */}
+          <path
+            d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15"
+            fill="none"
+            stroke="#bfdbfe"
+            strokeWidth="7"
+            strokeLinecap="round"
+          />
+          {/* Flowing current — animated dashes */}
+          <path
+            d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15"
+            fill="none"
+            stroke="#2563EB"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className="animate-river"
+          />
+        </svg>
+      </div>
+
+      {/* Steps */}
+      <div className="w-full max-w-sm flex flex-col gap-5">
+        {STEPS.map((label, i) => {
+          const done = i < completedCount
+          const active = i === completedCount
+          return (
+            <div
+              key={i}
+              className={`flex items-center gap-4 transition-all duration-500 ${done || active ? 'opacity-100' : 'opacity-20'}`}
+            >
+              <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                {done ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C5F2E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                ) : active ? (
+                  <div className="w-5 h-5 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
+                )}
+              </div>
+              <span className={`text-base font-semibold transition-colors duration-300 ${
+                done ? 'text-slate-800' : active ? 'text-slate-800' : 'text-slate-300'
+              }`}>
+                {label}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

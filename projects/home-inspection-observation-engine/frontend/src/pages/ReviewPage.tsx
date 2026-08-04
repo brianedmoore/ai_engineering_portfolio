@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { API_URL } from '../api'
+import Header from '../components/Header'
 
 type Observation = {
   observation_id: string
@@ -48,6 +49,9 @@ export default function ReviewPage() {
   const [rejectNotes, setRejectNotes] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [editedFields, setEditedFields] = useState<Set<string>>(new Set())
+  const [flashingField, setFlashingField] = useState<string | null>(null)
+  const detailsRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/observations/${id}`)
@@ -75,6 +79,9 @@ export default function ReviewPage() {
         body: JSON.stringify({ [editingField]: value }),
       })
       setObs({ ...obs, [editingField]: value } as Observation)
+      setEditedFields(prev => new Set([...prev, editingField]))
+      setFlashingField(editingField)
+      setTimeout(() => setFlashingField(null), 1200)
       setEditingField(null)
     } catch {
       setError('Failed to save field. Please try again.')
@@ -117,66 +124,96 @@ export default function ReviewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Loading observation...</p>
+      <div className="min-h-screen bg-offwhite">
+        <Header />
+        <div className="flex items-center justify-center h-64">
+          <p className="text-slate-400 text-base">Loading observation...</p>
+        </div>
       </div>
     )
   }
 
   if (!obs) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-400 text-sm">Observation not found.</p>
+      <div className="min-h-screen bg-offwhite">
+        <Header />
+        <div className="flex items-center justify-center h-64">
+          <p className="text-slate-400 text-base">Observation not found.</p>
+        </div>
       </div>
     )
   }
 
   const severityColor = severityColors[obs.severity ?? ''] ?? 'bg-gray-100 text-gray-700'
-  const ep = { editingField, editValue, onStartEdit: startEdit, onSave: saveEdit, onCancel: cancelEdit, onChange: setEditValue }
+  const ep = { editingField, editValue, onStartEdit: startEdit, onSave: saveEdit, onCancel: cancelEdit, onChange: setEditValue, flashingField, editedFields }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-lg mx-auto px-4 py-10">
+    <div className="min-h-screen bg-offwhite">
+      <Header />
+      <div className="max-w-lg mx-auto px-4 py-8">
 
-        <button onClick={() => navigate('/')} className="text-sm text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500">
+        <button onClick={() => navigate('/')} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
           ← New observation
         </button>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl px-4 py-3 mb-4">
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-5 text-base">
             {error}
           </div>
         )}
 
-        {/* Header — reflects live obs state, updates when fields are saved */}
+        {obs.missing_information && obs.missing_information.length > 0 && (
+          <div
+            className="bg-red-50 border-2 border-red-200 rounded-2xl p-5 mb-5 cursor-pointer active:scale-[0.99] transition-transform"
+            onClick={() => detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          >
+            <div className="flex items-center gap-2.5 mb-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <p className="text-red-700 font-bold text-base">
+                {obs.missing_information.length} field{obs.missing_information.length > 1 ? 's' : ''} need your attention
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {obs.missing_information.map((item, i) => (
+                <p key={i} className="text-red-600 text-sm leading-relaxed pl-1">• {item} — Please fill this in manually.</p>
+              ))}
+            </div>
+            <p className="text-red-400 text-sm font-semibold mt-3">Tap to review fields ↓</p>
+          </div>
+        )}
+
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">{obs.title ?? 'Untitled'}</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-3">{obs.title ?? 'Untitled'}</h1>
           <div className="flex flex-wrap gap-2">
             {obs.room_or_area && <Chip>{obs.room_or_area}</Chip>}
             {obs.system && <Chip>{obs.system}</Chip>}
-            {obs.severity && <span className={`text-xs font-bold px-3 py-1 rounded-full ${severityColor}`}>{obs.severity} Severity</span>}
-            {obs.safety_related && <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">⚠ Safety Issue</span>}
+            {obs.severity && <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${severityColor}`}>{obs.severity} Severity</span>}
+            {obs.safety_related && <span className="bg-red-500 text-white text-sm font-bold px-3 py-1.5 rounded-full">⚠ Safety Issue</span>}
           </div>
         </div>
 
         <div className="flex flex-col gap-4">
 
           {/* Summary */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Summary</p>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Summary</p>
             <TextBlock value={obs.plain_english_summary} fieldKey="plain_english_summary" {...ep} />
           </div>
 
           {/* Professional Description */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Professional Description</p>
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Professional Description</p>
             <TextBlock value={obs.professional_report_description} fieldKey="professional_report_description" {...ep} />
           </div>
 
           {/* Details — all patchable fields */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Details</p>
-            <div className="flex flex-col divide-y divide-gray-50">
+          <div ref={detailsRef} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Details</p>
+            <div className="flex flex-col divide-y divide-slate-50">
               <EditableRow label="Title"                    value={obs.title}                   fieldKey="title"                    {...ep} />
               <EditableRow label="Room / Area"              value={obs.room_or_area}             fieldKey="room_or_area"             {...ep} />
               <EditableRow label="System"                   value={obs.system}                   fieldKey="system"        type="select" options={SYSTEM_OPTIONS}      {...ep} />
@@ -191,12 +228,12 @@ export default function ReviewPage() {
           </div>
 
           {/* AI Assessment — read only */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">AI Assessment</p>
-            <div className="flex flex-col divide-y divide-gray-50">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">AI Assessment</p>
+            <div className="flex flex-col divide-y divide-slate-50">
               <Row label="Confidence"         value={`${Math.round(obs.confidence * 100)}%`} />
               <Row label="Needs Human Review" value={obs.needs_human_review ? 'Yes' : 'No'} />
-              <Row label="Input Type"         value={obs.source_input_type} />
+              <Row label="Input Type"         value={formatInputType(obs.source_input_type)} />
               <Row label="Status"             value={obs.status} />
             </div>
           </div>
@@ -204,64 +241,65 @@ export default function ReviewPage() {
         </div>
 
         {/* Actions */}
-      <div className="mt-6 flex flex-col gap-3">
-        <button
-          onClick={handleApprove}
-          disabled={isApproving}
-          className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-40"
-        >
-          {isApproving ? 'Approving...' : 'Approve Observation'}
-        </button>
-        {showRejectForm ? (
-          <div className="bg-white rounded-2xl border border-red-100 p-4 flex flex-col gap-3">
-            <p className="text-sm font-medium text-gray-700">Reason for rejection</p>
-            <select
-              value={rejectReason}
-              onChange={e => setRejectReason(e.target.value)}
-              className="w-full text-sm text-gray-800 border border-gray-200 rounded-lg p-2 outline-none bg-white"
-            >
-              <option value="bad_photo">Bad photo</option>
-              <option value="bad_audio">Bad audio</option>
-              <option value="bad_text">Bad text</option>
-              <option value="duplicate">Duplicate</option>
-              <option value="other">Other</option>
-            </select>
-            {rejectReason === 'other' && (
-              <textarea
-                rows={3}
-                placeholder="Describe the reason..."
-                value={rejectNotes}
-                onChange={e => setRejectNotes(e.target.value)}
-                className="w-full text-sm text-gray-800 border border-gray-200 rounded-lg p-2 resize-none outline-none"
-              />
-            )}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowRejectForm(false)}
-                className="flex-1 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-600"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={isRejecting || (rejectReason === 'other' && !rejectNotes.trim())}
-                className="flex-1 py-2 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-400 disabled:opacity-40"
-              >
-                {isRejecting ? 'Rejecting...' : 'Confirm Reject'}
-              </button>
-            </div>
-          </div>
-        ) : (
+        <div className="mt-6 flex flex-col gap-3">
           <button
-            onClick={() => setShowRejectForm(true)}
-            className="w-full py-3 rounded-2xl text-sm font-semibold border border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+            onClick={handleApprove}
+            disabled={isApproving}
+            className="w-full py-4 rounded-2xl text-base font-bold text-white transition-all active:scale-[0.97] cursor-pointer disabled:opacity-40 shadow-md"
+            style={{ backgroundColor: '#2C5F2E' }}
           >
-            Reject
+            {isApproving ? 'Approving...' : 'Approve Observation'}
           </button>
-        )}
+          {showRejectForm ? (
+            <div className="bg-white rounded-2xl border border-red-100 p-5 flex flex-col gap-4 shadow-sm">
+              <p className="text-base font-semibold text-slate-800">Reason for rejection</p>
+              <select
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                className="w-full text-base text-slate-800 border border-slate-200 rounded-xl p-3 outline-none bg-white"
+              >
+                <option value="bad_photo">Bad photo</option>
+                <option value="bad_audio">Bad audio</option>
+                <option value="bad_text">Bad text</option>
+                <option value="duplicate">Duplicate</option>
+                <option value="other">Other</option>
+              </select>
+              {rejectReason === 'other' && (
+                <textarea
+                  rows={3}
+                  placeholder="Describe the reason..."
+                  value={rejectNotes}
+                  onChange={e => setRejectNotes(e.target.value)}
+                  className="w-full text-base text-slate-800 border border-slate-200 rounded-xl p-3 resize-none outline-none"
+                />
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRejectForm(false)}
+                  className="flex-1 py-3 rounded-xl text-base text-slate-400 hover:text-slate-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReject}
+                  disabled={isRejecting || (rejectReason === 'other' && !rejectNotes.trim())}
+                  className="flex-1 py-3 rounded-xl text-base font-bold bg-red-500 text-white hover:bg-red-400 disabled:opacity-40"
+                >
+                  {isRejecting ? 'Rejecting...' : 'Confirm Reject'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowRejectForm(true)}
+              className="w-full py-4 rounded-2xl text-base font-bold border-2 border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+            >
+              Reject
+            </button>
+          )}
+        </div>
       </div>
     </div>
-  </div>
   )
 }
 
@@ -272,51 +310,59 @@ type EditProps = {
   onSave: () => void
   onCancel: () => void
   onChange: (value: string) => void
+  flashingField: string | null
+  editedFields: Set<string>
 }
 
-function TextBlock({ value, fieldKey, editingField, editValue, onStartEdit, onSave, onCancel, onChange }: { value: string | null | undefined; fieldKey: string } & EditProps) {
+function TextBlock({ value, fieldKey, editingField, editValue, onStartEdit, onSave, onCancel, onChange, flashingField, editedFields }: { value: string | null | undefined; fieldKey: string } & EditProps) {
   const isEditing = editingField === fieldKey
+  const isFlashing = flashingField === fieldKey
+  const wasEdited = editedFields.has(fieldKey)
   if (isEditing) {
     return (
-      <div className="flex flex-col gap-2">
-        <textarea rows={4} value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 resize-none outline-none" autoFocus />
+      <div className="flex flex-col gap-3">
+        <textarea rows={4} value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-base text-slate-800 border border-blue-300 rounded-xl p-3 resize-none outline-none leading-relaxed" autoFocus />
         <EditActions onSave={onSave} onCancel={onCancel} />
       </div>
     )
   }
   return (
-    <div className="flex items-start justify-between gap-2">
-      <p className="text-sm text-gray-800 leading-relaxed">{value ?? '—'}</p>
-      <button onClick={() => onStartEdit(fieldKey, value ?? null)} className="text-gray-300 hover:text-blue-400 shrink-0 text-base">✏</button>
+    <div className={`-m-2 p-2 rounded-xl transition-colors duration-700 ${isFlashing ? 'bg-green-100' : wasEdited ? 'bg-green-50' : 'bg-transparent'}`}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-base text-slate-800 leading-relaxed">{value ?? '—'}</p>
+        <button onClick={() => onStartEdit(fieldKey, value ?? null)} className="text-slate-300 hover:text-blue-500 shrink-0 text-lg mt-0.5">✏</button>
+      </div>
     </div>
   )
 }
 
-function EditableRow({ label, value, fieldKey, type = 'text', multiline = false, options = [], editingField, editValue, onStartEdit, onSave, onCancel, onChange }: {
+function EditableRow({ label, value, fieldKey, type = 'text', multiline = false, options = [], editingField, editValue, onStartEdit, onSave, onCancel, onChange, flashingField, editedFields }: {
   label: string; value: string | null | undefined; fieldKey: string; type?: 'text' | 'select'; multiline?: boolean; options?: string[]
 } & EditProps) {
   const isEditing = editingField === fieldKey
+  const isFlashing = flashingField === fieldKey
+  const wasEdited = editedFields.has(fieldKey)
   return (
-    <div className="py-3 first:pt-0 last:pb-0">
+    <div className={`py-3.5 first:pt-0 last:pb-0 -mx-2 px-2 rounded-xl transition-colors duration-700 ${isFlashing ? 'bg-green-100' : wasEdited ? 'bg-green-50' : 'bg-transparent'}`}>
       <div className="flex justify-between items-start gap-3">
-        <span className="text-xs text-gray-400 shrink-0 mt-1">{label}</span>
+        <span className="text-sm text-slate-400 shrink-0 mt-0.5 font-medium">{label}</span>
         {isEditing ? (
           <div className="flex-1 flex flex-col gap-2">
             {type === 'select' ? (
-              <select value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 outline-none bg-white">
+              <select value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-base text-slate-800 border border-blue-300 rounded-xl p-2.5 outline-none bg-white">
                 {options.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             ) : multiline ? (
-              <textarea rows={3} value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 resize-none outline-none" autoFocus />
+              <textarea rows={3} value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-base text-slate-800 border border-blue-300 rounded-xl p-2.5 resize-none outline-none" autoFocus />
             ) : (
-              <input type="text" value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-sm text-gray-800 border border-blue-300 rounded-lg p-2 outline-none" autoFocus />
+              <input type="text" value={editValue} onChange={e => onChange(e.target.value)} className="w-full text-base text-slate-800 border border-blue-300 rounded-xl p-2.5 outline-none" autoFocus />
             )}
             <EditActions onSave={onSave} onCancel={onCancel} />
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-800 text-right">{value ?? '—'}</span>
-            <button onClick={() => onStartEdit(fieldKey, value ?? null)} className="text-gray-300 hover:text-blue-400 text-base">✏</button>
+            <span className="text-base text-slate-800 text-right">{value ?? '—'}</span>
+            <button onClick={() => onStartEdit(fieldKey, value ?? null)} className="text-slate-300 hover:text-blue-500 text-lg">✏</button>
           </div>
         )}
       </div>
@@ -324,24 +370,35 @@ function EditableRow({ label, value, fieldKey, type = 'text', multiline = false,
   )
 }
 
+function formatInputType(value: string | null | undefined): string {
+  if (!value) return '—'
+  const map: Record<string, string> = {
+    photo_only: 'Photo only',
+    text_only: 'Text only',
+    photo_and_text: 'Photo + Text',
+    photo_and_audio: 'Photo + Audio',
+  }
+  return map[value] ?? value
+}
+
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
   return (
-    <div className="py-3 first:pt-0 last:pb-0 flex justify-between items-start gap-3">
-      <span className="text-xs text-gray-400 shrink-0">{label}</span>
-      <span className="text-sm text-gray-800 text-right">{value ?? '—'}</span>
+    <div className="py-3.5 first:pt-0 last:pb-0 flex justify-between items-start gap-3">
+      <span className="text-sm text-slate-400 shrink-0 font-medium">{label}</span>
+      <span className="text-base text-slate-800 text-right">{value ?? '—'}</span>
     </div>
   )
 }
 
 function Chip({ children }: { children: React.ReactNode }) {
-  return <span className="bg-gray-100 text-gray-600 text-xs font-medium px-3 py-1 rounded-full">{children}</span>
+  return <span className="bg-slate-100 text-slate-600 text-sm font-medium px-3 py-1.5 rounded-full">{children}</span>
 }
 
 function EditActions({ onSave, onCancel }: { onSave: () => void; onCancel: () => void }) {
   return (
-    <div className="flex gap-3 justify-end">
-      <button onClick={onCancel} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
-      <button onClick={onSave} className="text-xs text-blue-600 font-semibold hover:text-blue-500">Save</button>
+    <div className="flex gap-4 justify-end">
+      <button onClick={onCancel} className="text-sm text-slate-400 hover:text-slate-600">Cancel</button>
+      <button onClick={onSave} className="text-sm text-blue-600 font-bold hover:text-blue-500">Save</button>
     </div>
   )
 }
