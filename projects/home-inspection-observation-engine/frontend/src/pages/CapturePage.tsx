@@ -11,11 +11,12 @@ export default function CapturePage() {
   const navigate = useNavigate()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [_audioBlob, setAudioBlob] = useState<Blob | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const audioInputRef = useRef<HTMLInputElement>(null)
   const [approvedCount, setApprovedCount] = useState(0)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/observations?status=Approved`)
@@ -78,6 +79,7 @@ export default function CapturePage() {
       navigate(`/review/${data.observation_id}`)
     } catch (err) {
       console.error('Submit failed:', err)
+      setError('Submission failed. Please check your connection and try again.')
       setIsSubmitting(false)
     }
   }
@@ -98,6 +100,11 @@ export default function CapturePage() {
             </span>
           )}
         </div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl px-4 py-3 mb-4">
+            {error}
+          </div>
+        )}
 
         <div className="flex flex-col gap-4">
 

@@ -47,6 +47,7 @@ export default function ReviewPage() {
   const [rejectReason, setRejectReason] = useState('bad_photo')
   const [rejectNotes, setRejectNotes] = useState('')
   const [isRejecting, setIsRejecting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch(`${API_URL}/observations/${id}`)
@@ -67,13 +68,17 @@ export default function ReviewPage() {
     if (!editingField || !obs) return
     const value: string | boolean | null =
       editingField === 'safety_related' ? editValue === 'Yes' : editValue || null
-    await fetch(`${API_URL}/observations/${obs.observation_id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [editingField]: value }),
-    })
-    setObs({ ...obs, [editingField]: value } as Observation)
-    setEditingField(null)
+    try {
+      await fetch(`${API_URL}/observations/${obs.observation_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [editingField]: value }),
+      })
+      setObs({ ...obs, [editingField]: value } as Observation)
+      setEditingField(null)
+    } catch {
+      setError('Failed to save field. Please try again.')
+    }
   }
 
   function cancelEdit() {
@@ -83,10 +88,15 @@ export default function ReviewPage() {
   async function handleApprove() {
     if (!obs) return
     setIsApproving(true)
-    await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, {
-      method: 'POST',
-    })
-    navigate('/')
+    try {
+      await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, {
+        method: 'POST',
+      })
+      navigate('/')
+    } catch {
+      setError('Failed to approve. Please try again.')
+      setIsApproving(false)
+    }
   }
 
   async function handleReject() {
@@ -94,10 +104,15 @@ export default function ReviewPage() {
     setIsRejecting(true)
     const params = new URLSearchParams({ reason: rejectReason })
     if (rejectNotes.trim()) params.append('notes', rejectNotes.trim())
-    await fetch(`${API_URL}/observations/${obs.observation_id}/reject?${params}`, {
-      method: 'POST',
-    })
-    navigate('/')
+    try {
+      await fetch(`${API_URL}/observations/${obs.observation_id}/reject?${params}`, {
+        method: 'POST',
+      })
+      navigate('/')
+    } catch {
+      setError('Failed to reject. Please try again.')
+      setIsRejecting(false)
+    }
   }
 
   if (loading) {
@@ -126,6 +141,12 @@ export default function ReviewPage() {
         <button onClick={() => navigate('/')} className="text-sm text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500">
           ← New observation
         </button>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-2xl px-4 py-3 mb-4">
+            {error}
+          </div>
+        )}
 
         {/* Header — reflects live obs state, updates when fields are saved */}
         <div className="mb-6">
