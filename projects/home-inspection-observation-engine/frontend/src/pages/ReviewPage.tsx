@@ -41,6 +41,7 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [isApproving, setIsApproving] = useState(false)
 
   useEffect(() => {
     fetch(`http://localhost:8000/observations/${id}`)
@@ -72,6 +73,16 @@ export default function ReviewPage() {
 
   function cancelEdit() {
     setEditingField(null)
+  }
+
+  async function handleApprove() {
+    if (!obs) return
+    setIsApproving(true)
+    await fetch(`http://localhost:8000/observations/${obs.observation_id}/approve`, {
+      method: 'POST',
+    })
+    setObs({ ...obs, status: 'Approved' })
+    setIsApproving(false)
   }
 
   if (loading) {
@@ -158,9 +169,27 @@ export default function ReviewPage() {
 
         {/* Actions */}
         <div className="mt-6 flex flex-col gap-3">
-          <button className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer">
-            Approve Observation
-          </button>
+          {obs.status === 'Approved' ? (
+            <div className="flex flex-col gap-3">
+              <div className="w-full py-3 rounded-2xl text-sm font-semibold bg-green-100 text-green-700 text-center">
+                ✓ Observation Approved
+              </div>
+              <button
+                onClick={() => navigate('/')}
+                className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer"
+              >
+                Start Next Observation
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleApprove}
+              disabled={isApproving}
+              className="w-full py-3 rounded-2xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-500 transition-colors cursor-pointer disabled:opacity-40"
+            >
+              {isApproving ? 'Approving...' : 'Approve Observation'}
+            </button>
+          )}
           <button className="w-full py-3 rounded-2xl text-sm font-semibold border border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
             Reject
           </button>
