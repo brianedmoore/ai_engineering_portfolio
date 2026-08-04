@@ -42,6 +42,10 @@ export default function ReviewPage() {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [isApproving, setIsApproving] = useState(false)
+  const [showRejectForm, setShowRejectForm] = useState(false)
+  const [rejectReason, setRejectReason] = useState('bad_photo')
+  const [rejectNotes, setRejectNotes] = useState('')
+  const [isRejecting, setIsRejecting] = useState(false)
 
   useEffect(() => {
     fetch(`http://localhost:8000/observations/${id}`)
@@ -79,6 +83,17 @@ export default function ReviewPage() {
     if (!obs) return
     setIsApproving(true)
     await fetch(`http://localhost:8000/observations/${obs.observation_id}/approve`, {
+      method: 'POST',
+    })
+    navigate('/')
+  }
+
+  async function handleReject() {
+    if (!obs) return
+    setIsRejecting(true)
+    const params = new URLSearchParams({ reason: rejectReason })
+    if (rejectNotes.trim()) params.append('notes', rejectNotes.trim())
+    await fetch(`http://localhost:8000/observations/${obs.observation_id}/reject?${params}`, {
       method: 'POST',
     })
     navigate('/')
@@ -175,9 +190,53 @@ export default function ReviewPage() {
         >
           {isApproving ? 'Approving...' : 'Approve Observation'}
         </button>
-        <button className="w-full py-3 rounded-2xl text-sm font-semibold border border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer">
-          Reject
-        </button>
+        {showRejectForm ? (
+          <div className="bg-white rounded-2xl border border-red-100 p-4 flex flex-col gap-3">
+            <p className="text-sm font-medium text-gray-700">Reason for rejection</p>
+            <select
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              className="w-full text-sm text-gray-800 border border-gray-200 rounded-lg p-2 outline-none bg-white"
+            >
+              <option value="bad_photo">Bad photo</option>
+              <option value="bad_audio">Bad audio</option>
+              <option value="bad_text">Bad text</option>
+              <option value="duplicate">Duplicate</option>
+              <option value="other">Other</option>
+            </select>
+            {rejectReason === 'other' && (
+              <textarea
+                rows={3}
+                placeholder="Describe the reason..."
+                value={rejectNotes}
+                onChange={e => setRejectNotes(e.target.value)}
+                className="w-full text-sm text-gray-800 border border-gray-200 rounded-lg p-2 resize-none outline-none"
+              />
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRejectForm(false)}
+                className="flex-1 py-2 rounded-xl text-sm text-gray-400 hover:text-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={isRejecting || (rejectReason === 'other' && !rejectNotes.trim())}
+                className="flex-1 py-2 rounded-xl text-sm font-semibold bg-red-500 text-white hover:bg-red-400 disabled:opacity-40"
+              >
+                {isRejecting ? 'Rejecting...' : 'Confirm Reject'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowRejectForm(true)}
+            className="w-full py-3 rounded-2xl text-sm font-semibold border border-red-300 text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+          >
+            Reject
+          </button>
+        )}
       </div>
     </div>
   </div>
