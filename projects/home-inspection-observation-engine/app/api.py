@@ -185,6 +185,81 @@ def get_observation_photo(observation_id: str, photo_id: int, session: Session =
     return Response(content=photo.data, media_type=photo.content_type)
 
 
+@app.post("/observations/{observation_id}/process", response_model=StructuredObservation)
+def process_observation(observation_id: str, session: Session = Depends(get_session)):
+    observation = session.get(StructuredObservation, observation_id)
+    if not observation:
+        raise HTTPException(status_code=404, detail="Observation not found")
+    if observation.status != ObservationStatus.RAW:
+        raise HTTPException(status_code=400, detail="Only Raw observations can be processed")
+
+    tmp_paths = []
+    try:
+        t_total_start = time.perf_counter()
+
+        photo_ids = observation.photo_ids or []
+        photo_rows = [session.get(Photo, pid) for pid in photo_ids]
+        photo_rows = [p for p in photo_rows if p]
+
+        image_descriptions = []
+        t_image_start = time.perf_counter()
+        for photo in photo_rows:
+            suffix = os.path.splitext(photo.filename)[1] or ".jpg"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(photo.data)
+                tmp_paths.append(tmp.name)
+            image_descriptions.append(analyze_image(tmp_paths[-1]))
+        t_image_ms = round((time.perf_counter() - t_image_start) * 1000)
+
+        observation_input = ObservationInput(
+            text_description=observation.text_description,
+            audio_transcript=observation.audio_transcript,
+            photo_ids=[p.filename for p in photo_rows],
+            image_descriptions=image_descriptions
+        )
+
+        t_llm_start = time.perf_counter()
+        result = create_basic_structured_observation(observation_id, observation_input)
+        t_llm_ms = round((time.perf_counter() - t_llm_start) * 1000)
+
+        observation.title = result.title
+        observation.room_or_area = result.room_or_area
+        observation.system = result.system
+        observation.component = result.component
+        observation.defect_type = result.defect_type
+        observation.severity = result.severity
+        observation.safety_related = result.safety_related
+        observation.professional_report_description = result.professional_report_description
+        observation.plain_english_summary = result.plain_english_summary
+        observation.recommended_action = result.recommended_action
+        observation.responsible_professional = result.responsible_professional
+        observation.estimated_cost_range = result.estimated_cost_range
+        observation.source_input_type = result.source_input_type
+        observation.confidence = result.confidence
+        observation.needs_human_review = result.needs_human_review
+        observation.missing_information = result.missing_information
+        observation.llm_usage = result.llm_usage
+        observation.image_descriptions = image_descriptions
+        observation.status = result.status
+        observation.timings_ms = {
+            "image_analysis_ms": t_image_ms,
+            "llm_call_ms": t_llm_ms,
+            "total_ms": round((time.perf_counter() - t_total_start) * 1000)
+        }
+
+        session.add(observation)
+        session.commit()
+        session.refresh(observation)
+        return observation
+
+    except Exception as e:
+        logging.error("Observation processing failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to process observation. Please try again.")
+    finally:
+        for path in tmp_paths:
+            if os.path.exists(path):
+                os.unlink(path)
+
 @app.post("/transcribe")
 def transcribe(file: UploadFile = File(...)):
     try:
