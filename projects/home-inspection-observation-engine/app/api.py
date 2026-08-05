@@ -6,7 +6,7 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
@@ -204,6 +204,57 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
 def get_me(inspector: Inspector = Depends(get_current_inspector)):
     return inspector
     
+@app.post("/inspections", response_model=InspectionOut, status_code=201)
+def create_inspection(
+    payload: Inspectioncreate,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+    ):
+    inspection = Inspection(
+        **payload.model_dump(),
+        inspector_id=inspector.id,
+        created-at=datetime.now(timezone.utc),
+    )
+    session.add(inspection)
+    session.commit()
+    session.refresh(inspection)
+    return inspection
+
+
+@app.get("/inspections", response_model=LIST[InspectionOut])
+def list_inspections(
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+    ):
+    inspections = session.exec(
+        select(Inspection).where(Inspection.inspector_id == inspector.id)    
+    ).all()
+    return inspections
+
+
+@app.get("/inspections/{inspection_id}", response_model=InspectionOut)
+def get_inspection(
+    inspection_id: int,
+    inspector: Inspector = Depends(get_current_inspector)
+    session: Session = Depends(get_session),
+    ):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    return inspection
+
+
+@app.delete("/inspections/{inspection_id}", status_code=204)
+def delete_inspection(
+    inspection_id: int,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: session = Depends(get_session),
+    ):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    session.delete(inspection)
+    session.commit()
 
 @app.post("/auth/register", response_model=InspectorOut, status_code=201)
 def register(payload: RegisterRequest, session: Session = Depends(get_session)):

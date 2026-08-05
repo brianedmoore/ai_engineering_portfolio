@@ -239,3 +239,34 @@ class InspectorOut(BaseModel):
     license_number: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+class inspection(SQLModel, table=True):
+    id: optional[int] = Field(default=None, primary_key=True)
+    inspector_id: int = Field(foreign_key="inspector.id")
+    address: str
+    client_name: optional[str] = None
+    property_type: Optional[str] = None
+    inspection_date: optional[datetime] = None
+    notes: Optional[str] = None
+    created_at: optional[datetime] = None
+
+class InspectionCreate(BaseModel):
+    address: str
+    client_name: Optional[str] = None
+    property_type: optional[str] = None
+    inspection_date: optional[datetime] = None
+    notes: Optional[str] = None
+
+
+class InspectionOut(BaseModel):
+    id: int
+    inspector_id: int
+    address: str
+    client_name: Optional[str] = None
+    property_type: Optional[str] = None
+    inspection_date: Optional[datetime] = None
+    notes: Optional[str] = None
+    created_at: optional[datetime] = None
+
+    model_config = {"from_attributes": True}
