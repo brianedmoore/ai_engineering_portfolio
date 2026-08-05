@@ -57,3 +57,55 @@ body {
 .animate-recording-pulse-delay {
   animation: recording-pulse 1.4s ease-out 0.55s infinite;
 }
+
+@keyframes river-flow {
+  0% { stroke-dashoffset: 120; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes river-flow-slow {
+  0% { stroke-dashoffset: 200; }
+  100% { stroke-dashoffset: 0; }
+}
+
+@keyframes river-flow-reverse {
+  0% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: 120; }
+}
+
+.animate-river-hero-1 {
+  stroke-dasharray: 36 14;
+  animation: river-flow 1.8s linear infinite;
+}
+
+.animate-river-hero-2 {
+  stroke-dasharray: 24 20;
+  animation: river-flow-slow 2.6s linear infinite;
+}
+
+.animate-river-hero-3 {
+  stroke-dasharray: 16 28;
+  animation: river-flow-reverse 2.1s linear infinite;
+}
+
+.animate-river-hero-4 {
+  stroke-dasharray: 48 10;
+  animation: river-flow 3.2s linear infinite;
+}
+
+@keyframes ripple-out {
+  0% { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
+.animate-ripple {
+  animation: ripple-out 2.4s ease-out infinite;
+}
+
+.animate-ripple-delay {
+  animation: ripple-out 2.4s ease-out 0.8s infinite;
+}
+
+.animate-ripple-delay-2 {
+  animation: ripple-out 2.4s ease-out 1.6s infinite;
+}

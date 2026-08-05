@@ -15,7 +15,7 @@ type Inspection = {
 }
 
 export default function InspectionsListPage() {
-  const { token, inspector, logout } = useAuth()
+  const { token, inspector } = useAuth()
   const navigate = useNavigate()
   const [inspections, setInspections] = useState<Inspection[]>([])
   const [loading, setLoading] = useState(true)
@@ -47,21 +47,13 @@ export default function InspectionsListPage() {
       <div className="max-w-lg mx-auto px-4 py-8">
 
         {/* Greeting + sign out */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-              {inspector?.name ?? 'My Inspections'}
-            </h1>
-            {inspector?.company_name && (
-              <p className="text-slate-400 text-sm mt-0.5">{inspector.company_name}</p>
-            )}
-          </div>
-          <button
-            onClick={logout}
-            className="text-slate-400 text-sm font-medium hover:text-slate-600"
-          >
-            Sign out
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            {inspector?.name ?? 'My Inspections'}
+          </h1>
+          {inspector?.company_name && (
+            <p className="text-slate-400 text-sm mt-0.5">{inspector.company_name}</p>
+          )}
         </div>
 
         {/* New Inspection button */}
