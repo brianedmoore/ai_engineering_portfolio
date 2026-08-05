@@ -42,7 +42,12 @@ export default function ReviewPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const fromList = (location.state as { from?: string } | null)?.from === 'list'
+  const locationState = location.state as { from?: string; inspectionId?: string } | null
+  const fromList = locationState?.from === 'list'
+  const fromInspection = locationState?.from === 'inspection'
+  const inspectionId = locationState?.inspectionId
+  const backPath = fromList ? '/list' : fromInspection && inspectionId ? `/inspections/${inspectionId}` : '/'
+  const backLabel = fromList ? '← Back to list' : fromInspection ? '← Back to inspection' : '← New observation'
   const [obs, setObs] = useState<Observation | null>(null)
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -133,7 +138,7 @@ export default function ReviewPage() {
       await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, {
         method: 'POST',
       })
-      navigate(fromList ? '/list' : '/')
+      navigate(backPath)
     } catch {
       setError('Failed to approve. Please try again.')
       setIsApproving(false)
@@ -149,7 +154,7 @@ export default function ReviewPage() {
       await fetch(`${API_URL}/observations/${obs.observation_id}/reject?${params}`, {
         method: 'POST',
       })
-      navigate(fromList ? '/list' : '/')
+      navigate(backPath)
     } catch {
       setError('Failed to reject. Please try again.')
       setIsRejecting(false)
@@ -280,8 +285,8 @@ export default function ReviewPage() {
 
       <div className={`max-w-lg mx-auto px-4 py-8 ${showActions ? (showRejectForm ? 'pb-96' : 'pb-44') : 'pb-8'}`}>
 
-        <button onClick={() => navigate(fromList ? '/list' : '/')} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
-          {fromList ? '← Back to list' : '← New observation'}
+        <button onClick={() => navigate(backPath)} className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium">
+          {backLabel}
         </button>
 
         {error && (

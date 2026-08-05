@@ -15,15 +15,28 @@ export default function Header({ approvedCount }: HeaderProps) {
             Inspect<span style={{ color: '#2563EB' }}>Flow</span>
           </span>
         </div>
-        {approvedCount !== undefined && approvedCount > 0 && (
+
+        <div className="flex items-center gap-3">
+          {approvedCount !== undefined && approvedCount > 0 && (
+            <Link
+              to="/list"
+              className="text-sm font-semibold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+              style={{ backgroundColor: '#EBF2EC', color: '#2C5F2E' }}
+            >
+              ✓ {approvedCount} approved
+            </Link>
+          )}
           <Link
-            to="/list"
-            className="text-sm font-semibold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-            style={{ backgroundColor: '#EBF2EC', color: '#2C5F2E' }}
+            to="/profile"
+            className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center hover:bg-slate-200 active:scale-95 transition-all"
+            aria-label="Profile"
           >
-            ✓ {approvedCount} approved
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
           </Link>
-        )}
+        </div>
       </div>
     </header>
   )
