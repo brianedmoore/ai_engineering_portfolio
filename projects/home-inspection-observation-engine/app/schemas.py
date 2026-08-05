@@ -7,6 +7,7 @@ from sqlalchemy import Column, JSON
 
 
 class ObservationStatus(str, Enum):
+    RAW = "Raw"
     INCOMPLETE = "Incomplete"
     READY_FOR_REVIEW = "Ready for Review"
     APPROVED = "Approved"
@@ -136,6 +137,16 @@ class Photo(SQLModel, table=True):
     filename: str
     content_type: str
     data: bytes
+
+
+class Audio(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    observation_id: str
+    filename: str
+    content_type: str
+    data: bytes
+    duration_seconds: Optional[float] = None
+    waveform_bars: Optional[str] = None
 
 
 class LLMObservationOutput(BaseModel):
