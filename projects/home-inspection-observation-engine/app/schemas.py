@@ -157,6 +157,7 @@ class LLMObservationOutput(BaseModel):
 
 class StructuredObservation(SQLModel, table=True):
     observation_id: str = Field(primary_key=True)
+    inspection_id: Optional[int] = Field(default=None, foreign_key="inspection.id")
     status: ObservationStatus
     title: Optional[str] = None
     room_or_area: Optional[str] = None
