@@ -199,3 +199,43 @@ class ObservationPatch(SQLModel):
     recommended_action: Optional[str] = None
     responsible_professional: Optional[ResponsibleProfessional] = None
     estimated_cost_range: Optional[EstimatedCostRange] = None
+
+
+class Inspector(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(unique=True, index=True)
+    hashed_password: str
+    name: Optional[str] = None
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
+    company_phone: Optional[str] = None
+    license_number: Optional[str] = None
+    created_at: Optional[datetime] = No
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class InspectorOut(BaseModel):
+    id: int
+    email: str
+    name: Optional[str] = None
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
+    company_phone: Optional[str] = None
+    license_number: Optional[str] = None
+
+    model_config = {"from_attributes": True}

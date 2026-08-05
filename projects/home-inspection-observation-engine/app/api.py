@@ -6,7 +6,8 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut
+from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
@@ -191,6 +192,36 @@ def reject_observation(
     return observation
 
 
+@app.post("/auth/login", response_model=TokenResponse)
+def login(payload: LoginRequest, session: Session = Depends(get_session)):
+    inspector = session.exec(select(Inspector).where(Inspector.email == payload.email)).first()
+    if not inspector or not verify_password(payload.password, inspector.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return TokenResponse(access_token=create_access_token(str(inspector.id)))
+
+
+@app.get("/auth/me", response_model=InspectorOut)
+def get_me(inspector: Inspector = Depends(get_current_inspector)):
+    return inspector
+    
+
+@app.post("/auth/register", response_model=InspectorOut, status_code=201)
+def register(payload: RegisterRequest, session: Session = Depends(get_session)):
+    existing = session.exec(select(Inspector).where(Inspector.email == payload.email)).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    inspector = Inspector(
+        email=payload.email,
+        hashed_password=hash_password(payload.password),
+        name=payload.name,
+        created_at=datetime.now(timezone.utc),
+    )
+    session.add(inspector)
+    session.commit()
+    session.refresh(inspector)
+    return inspector
+
+
 @app.patch("/observations/{observation_id}", response_model=StructuredObservation)
 def patch_observation(observation_id: str, patch: ObservationPatch, session: Session = Depends(get_session)):
     observation = session.get(StructuredObservation, observation_id)
@@ -208,6 +239,7 @@ def patch_observation(observation_id: str, patch: ObservationPatch, session: Ses
     session.commit()
     session.refresh(observation)
     return observation
+
 
 @app.delete("/observations/{observation_id}", status_code=204)
 def delete_observation(observation_id: str, session: Session = Depends(get_session)):
