@@ -241,21 +241,21 @@ class InspectorOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class inspection(SQLModel, table=True):
-    id: optional[int] = Field(default=None, primary_key=True)
+class Inspection(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
     inspector_id: int = Field(foreign_key="inspector.id")
     address: str
-    client_name: optional[str] = None
+    client_name: Optional[str] = None
     property_type: Optional[str] = None
-    inspection_date: optional[datetime] = None
+    inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
-    created_at: optional[datetime] = None
+    created_at: Optional[datetime] = None
 
 class InspectionCreate(BaseModel):
     address: str
     client_name: Optional[str] = None
-    property_type: optional[str] = None
-    inspection_date: optional[datetime] = None
+    property_type: Optional[str] = None
+    inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
 
 
@@ -267,6 +267,6 @@ class InspectionOut(BaseModel):
     property_type: Optional[str] = None
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
-    created_at: optional[datetime] = None
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

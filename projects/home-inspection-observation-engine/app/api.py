@@ -206,14 +206,14 @@ def get_me(inspector: Inspector = Depends(get_current_inspector)):
     
 @app.post("/inspections", response_model=InspectionOut, status_code=201)
 def create_inspection(
-    payload: Inspectioncreate,
+    payload: InspectionCreate,
     inspector: Inspector = Depends(get_current_inspector),
     session: Session = Depends(get_session),
     ):
     inspection = Inspection(
         **payload.model_dump(),
         inspector_id=inspector.id,
-        created-at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc),
     )
     session.add(inspection)
     session.commit()
@@ -221,13 +221,13 @@ def create_inspection(
     return inspection
 
 
-@app.get("/inspections", response_model=LIST[InspectionOut])
+@app.get("/inspections", response_model=List[InspectionOut])
 def list_inspections(
     inspector: Inspector = Depends(get_current_inspector),
     session: Session = Depends(get_session),
     ):
     inspections = session.exec(
-        select(Inspection).where(Inspection.inspector_id == inspector.id)    
+        select(Inspection).where(Inspection.inspector_id == inspector.id)
     ).all()
     return inspections
 
@@ -235,7 +235,7 @@ def list_inspections(
 @app.get("/inspections/{inspection_id}", response_model=InspectionOut)
 def get_inspection(
     inspection_id: int,
-    inspector: Inspector = Depends(get_current_inspector)
+    inspector: Inspector = Depends(get_current_inspector),
     session: Session = Depends(get_session),
     ):
     inspection = session.get(Inspection, inspection_id)
@@ -248,7 +248,7 @@ def get_inspection(
 def delete_inspection(
     inspection_id: int,
     inspector: Inspector = Depends(get_current_inspector),
-    session: session = Depends(get_session),
+    session: Session = Depends(get_session),
     ):
     inspection = session.get(Inspection, inspection_id)
     if not inspection or inspection.inspector_id != inspector.id:
