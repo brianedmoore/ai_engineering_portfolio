@@ -6,7 +6,7 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
@@ -290,6 +290,20 @@ def patch_observation(observation_id: str, patch: ObservationPatch, session: Ses
     session.commit()
     session.refresh(observation)
     return observation
+
+
+@app.patch("/inspectors/me", response_model=InspectorOut)
+def update_inspector(
+    patch: InspectorPatch,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+    ):
+    for field, value in patch.model_dump(exclude_unset=True).items():
+        setattr(inspector, field, value)
+    session.add(inspector)
+    session.commit()
+    session.refresh(inspector)
+    return inspector
 
 
 @app.delete("/observations/{observation_id}", status_code=204)

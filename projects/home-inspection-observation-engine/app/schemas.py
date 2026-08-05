@@ -271,3 +271,11 @@ class InspectionOut(BaseModel):
     created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class InspectorPatch(BaseModel):
+    name: Optional[str] = None
+    company_name: Optional[str] = None
+    company_address: Optional[str] = None
+    company_phone: Optional[str] = None
+    license_number: Optional[str] = None
