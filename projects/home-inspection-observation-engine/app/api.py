@@ -33,7 +33,8 @@ def on_startup():
 
 @app.post("/observations", response_model=StructuredObservation)
 def create_observation(
-    observation_id: str, 
+    observation_id: str,
+    inspection_id: Optional[int] = Form(default=None),
     text_description: Optional[str] = Form(default=None),
     audio_transcript: Optional[str] = Form(default=None),
     photos: List[UploadFile] = File(default=[]),
@@ -71,6 +72,7 @@ def create_observation(
         result = create_basic_structured_observation(observation_id, observation_input)
         t_llm_ms = round((time.perf_counter() - t_llm_start) * 1000)
         result.text_description = text_description
+        result.inspection_id = inspection_id
         result.audio_transcript = audio_transcript
         result.created_at = datetime.now(timezone.utc)
         result.timings_ms = {

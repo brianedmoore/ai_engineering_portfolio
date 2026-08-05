@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { API_URL } from '../api'
 import Header from '../components/Header'
 import logoIcon from '../assets/logo-icon.png'
 
 export default function CapturePage() {
+  const { id: inspectionId } = useParams<{ id: string }>()
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [activePreviewIndex, setActivePreviewIndex] = useState(0)
@@ -211,6 +212,7 @@ export default function CapturePage() {
     photoFiles.forEach(f => formData.append('photos', f))
     if (text.trim()) formData.append('text_description', text.trim())
     if (audioTranscript) formData.append('audio_transcript', audioTranscript)
+    if (inspectionId) formData.append('inspection_id', inspectionId)
 
     try {
       const res = await fetch(`${API_URL}/observations?observation_id=${observationId}`, {

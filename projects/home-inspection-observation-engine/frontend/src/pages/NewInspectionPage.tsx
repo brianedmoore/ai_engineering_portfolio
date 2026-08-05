@@ -36,7 +36,7 @@ export default function NewInspectionPage() {
         return
       }
       const inspection = await res.json()
-      navigate(`/inspections/${inspection.id}`, { replace: true })
+      navigate(`/inspections/${inspection.id}/capture`, { replace: true })
     } catch {
       setError('Something went wrong. Try again.')
     } finally {
