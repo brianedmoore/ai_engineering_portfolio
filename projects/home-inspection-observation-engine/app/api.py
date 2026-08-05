@@ -8,7 +8,7 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.audio_transcription import transcribe_audio
@@ -99,6 +99,64 @@ def create_observation(
         for path in tmp_paths:
             os.unlink(path)
     
+
+@app.post("/observations/raw", response_model=StructuredObservation)
+def create_raw_observation(
+    observation_id: str,
+    inspection_id: Optional[int] = Form(default=None),
+    text_description: Optional[str] = Form(default=None),
+    audio_transcript: Optional[str] = Form(default=None),
+    audio_duration: Optional[float] = Form(default=None),
+    audio_waveform: Optional[str] = Form(default=None),
+    photos: List[UploadFile] = File(default=[]),
+    audio_file: Optional[UploadFile] = File(default=None),
+    session: Session = Depends(get_session)):
+    try:
+        photo_rows = []
+        for photo in photos:
+            photo_bytes = photo.file.read()
+            photo_rows.append(Photo(
+                observation_id=observation_id,
+                filename=photo.filename,
+                content_type=photo.content_type or "image/jpeg",
+                data=photo_bytes
+            ))
+
+        for photo_row in photo_rows:
+            session.add(photo_row)
+        session.flush()
+
+        audio_row = None
+        if audio_file:
+            audio_bytes = audio_file.file.read()
+            audio_row = Audio(
+                observation_id=observation_id,
+                filename=audio_file.filename or "recording.webm",
+                content_type=audio_file.content_type or "audio/webm",
+                data=audio_bytes,
+                duration_seconds=audio_duration,
+                waveform_bars=audio_waveform
+            )
+            session.add(audio_row)
+            session.flush()
+        
+        observation = StructuredObservation(
+            observation_id=observation_id,
+            inspection_id=inspection_id,
+            status=ObservationStatus.RAW,
+            text_description=text_description,
+            audio_transcript=audio_transcript,
+            photo_ids=[p.id for p in photo_rows],
+            created_at=datetime.now(timezone.utc)
+        )
+
+        session.add(observation)
+        session.commit()
+        session.refresh(observation)
+        return observation
+    except Exception as e:
+        logging.error("Raw observation creation failed: \n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to save observation. Please try again.")
 
 @app.get("/observations/{observation_id}", response_model=StructuredObservation)
 def get_observation(observation_id: str, session: Session = Depends(get_session)):
