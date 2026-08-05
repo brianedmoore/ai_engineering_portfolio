@@ -219,12 +219,20 @@ export default function CapturePage() {
         method: 'POST',
         body: formData,
       })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        const detail = errData.detail ?? 'Something went wrong processing your observation.'
+        setError(`${detail} Your photos and notes are intact — tap Submit to try again.`)
+        setIsSubmitting(false)
+        setIsSubmitComplete(false)
+        return
+      }
       const data = await res.json()
       setIsSubmitComplete(true)
       setTimeout(() => navigate(`/review/${data.observation_id}`), 900)
     } catch (err) {
       console.error('Submit failed:', err)
-      setError('Submission failed. Please check your connection and try again.')
+      setError('Could not reach the server. Check your connection and tap Submit to try again.')
       setIsSubmitting(false)
       setIsSubmitComplete(false)
     }

@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form, Response
 from typing import List, Optional
+import traceback
+import logging 
 from datetime import datetime, timezone
 from sqlmodel import Session, select
 import time
@@ -91,7 +93,8 @@ def create_observation(
         session.refresh(result)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.error("Observation creation failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to process observation. Please try again.")
     finally:
         for path in tmp_paths:
             os.unlink(path)
@@ -134,7 +137,8 @@ def transcribe(file: UploadFile = File(...)):
         transcript = transcribe_audio(tmp_path)
         return {"transcript": transcript}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.error("Transcription failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to transcribe audio. Please try again.")
     finally:
         os.unlink(tmp_path)
 
@@ -149,7 +153,8 @@ def analyze_image_endpoint(file: UploadFile = File(...)):
         description = analyze_image(tmp_path)
         return {"description": description}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logging.error("Image analysis failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to analyze image. Please try again.")
     finally:
         os.unlink(tmp_path)
 
