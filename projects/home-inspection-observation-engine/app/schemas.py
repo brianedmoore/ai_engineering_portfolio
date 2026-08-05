@@ -210,7 +210,7 @@ class Inspector(SQLModel, table=True):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
-    created_at: Optional[datetime] = No
+    created_at: Optional[datetime] = None
 
 
 class RegisterRequest(BaseModel):
