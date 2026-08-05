@@ -260,6 +260,25 @@ def process_observation(observation_id: str, session: Session = Depends(get_sess
             if os.path.exists(path):
                 os.unlink(path)
 
+
+@app.post("/inspections/{inspection_id}/process-queue")
+def process_queue(inspection_id: int, session: Session  =Depends(get_session)):
+    raw_observations = session.exec(
+        select(StructuredObservation)
+        .where(StructuredObservation.inspection_id == inspection_id)
+        .where(StructuredObservation.status == ObservationStatus.RAW)
+    ).all()
+
+    results = []
+    for obs in raw_observations:
+        try:
+            result = process_observation(obs.observation_id, session)
+            results.append({"observation_id": obs.observation_id, "status": result.status, "success": True})
+        except HTTPException as e:
+            results.append({"observation_id": obs.observation_id, "status": "error", "success": False, "detail": e.detail})
+
+    return {"processed": len(results), "results": results}
+
 @app.post("/transcribe")
 def transcribe(file: UploadFile = File(...)):
     try:
