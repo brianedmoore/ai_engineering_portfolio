@@ -606,19 +606,26 @@ export default function CapturePage() {
           <button
             disabled={!canSubmit || isSubmitting}
             onClick={handleAddToQueue}
-            className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide border-2 transition-all active:scale-[0.97] ${
+            style={!canSubmit ? {
+              background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
+            } : {}}
+            className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
               canSubmit && !isSubmitting
-                ? 'border-slate-300 text-slate-700 bg-white cursor-pointer hover:border-slate-400'
-                : 'border-slate-200 text-slate-300 cursor-not-allowed'
+                ? 'bg-sky-500 text-white cursor-pointer shadow-md shadow-sky-200'
+                : 'text-slate-500 cursor-not-allowed'
             }`}
           >
             Add to Queue
           </button>
           {canSubmit && (
-            <p className="text-xs text-center text-slate-400 px-4">
-              <span className="font-semibold text-blue-700">Generate Now</span> — AI processes immediately, review right away.{"  "}
-              <span className="font-semibold text-slate-500">Add to Queue</span> — Save now, process all at once when done walking the house.
-            </p>
+            <div className="flex flex-col gap-1 px-2">
+              <p className="text-xs text-slate-400">
+                <span className="font-semibold text-blue-700">Generate Now</span> — AI processes immediately, review right away.
+              </p>
+              <p className="text-xs text-slate-400">
+                <span className="font-semibold text-sky-500">Add to Queue</span> — Save now, process all at once when done walking the house.
+              </p>
+            </div>
           )}
         </div>
 
