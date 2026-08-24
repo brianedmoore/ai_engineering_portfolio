@@ -9,6 +9,7 @@ import NewInspectionPage from './pages/NewInspectionPage'
 import InspectionDetailPage from './pages/InspectionDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import LandingPage from './pages/LandingPage'
+import RawObservationPage from './pages/RawObservationPage'
 import { RequireAuth } from './components/RequireAuth'
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
       <Route path="/inspections/:id" element={<RequireAuth><InspectionDetailPage /></RequireAuth>} />
       <Route path="/inspections/:id/capture" element={<RequireAuth><CapturePage /></RequireAuth>} />
       <Route path="/review/:id" element={<RequireAuth><ReviewPage /></RequireAuth>} />
+      <Route path="/observations/:id/raw" element={<RequireAuth><RawObservationPage /></RequireAuth>} />
     </Routes>
   )
 }

@@ -214,7 +214,7 @@ export default function InspectionDetailPage() {
                           totalCount={observations.length}
                           failedPhotos={failedPhotos}
                           onFailPhoto={(id) => setFailedPhotos(prev => new Set(prev).add(id))}
-                          onClick={() => navigate(`/review/${obs.observation_id}`, { state: { from: 'inspection', inspectionId: id } })}
+                          onClick={() => navigate(`/observations/${obs.observation_id}/raw`, { state: { inspectionId: id } })}
                         />
                       ))
                     )}
