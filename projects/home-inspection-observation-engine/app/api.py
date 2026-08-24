@@ -487,5 +487,8 @@ def delete_observation(observation_id: str, session: Session = Depends(get_sessi
     photos = session.exec(select(Photo).where(Photo.observation_id == observation_id)).all()
     for photo in photos:
         session.delete(photo)
+    audio_records = session.exec(select(Audio).where(Audio.observation_id == observation_id)).all()
+    for audio in audio_records:
+        session.delete(audio)
     session.delete(observation)
     session.commit()

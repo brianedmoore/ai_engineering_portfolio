@@ -156,28 +156,11 @@ export default function RawObservationPage() {
 
   if (isProcessing) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#FAF9F6' }}>
-        <img src={logoIcon} alt="InspectFlow" className="h-40 w-auto" style={{ mixBlendMode: 'multiply' }} />
-        <div className="w-full max-w-sm overflow-hidden flex justify-center h-7">
-          <span className="animate-flowing text-base font-bold tracking-[0.3em]" style={{ color: '#2563EB' }}>Flowing</span>
-        </div>
-        <div className="w-full max-w-sm">
-          <svg viewBox="0 0 320 30" className="w-full" style={{ height: '30px' }}>
-            <path d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15" fill="none" stroke="#bfdbfe" strokeWidth="7" strokeLinecap="round" />
-            <path d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" className="animate-river" />
-          </svg>
-        </div>
-        <div className="flex flex-col items-center gap-2">
-          {processComplete ? (
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2C5F2E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
-          ) : (
-            <div className="w-7 h-7 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
-          )}
-          <p className="text-base font-semibold text-slate-700">{processComplete ? 'Done — opening review' : 'Analyzing observation...'}</p>
-        </div>
-      </div>
+      <ProcessOverlay
+        isComplete={processComplete}
+        hasAudio={!!audioUrl}
+        photoCount={obs?.photo_ids?.length ?? 1}
+      />
     )
   }
 
@@ -401,6 +384,75 @@ export default function RawObservationPage() {
             {isDeleting ? 'Deleting...' : 'Delete Observation'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+const STEP_DELAYS = [2500, 5500, 10000, 15000]
+
+function ProcessOverlay({ isComplete, hasAudio, photoCount }: { isComplete: boolean; hasAudio: boolean; photoCount: number }) {
+  const photoLabel = photoCount > 1 ? 'Analyzing photos' : 'Analyzing photo'
+  const STEPS = hasAudio
+    ? ['Transcribing audio', photoLabel, 'Examining observation', 'Classifying severity', 'Generating report']
+    : [photoLabel, 'Reading your notes', 'Examining observation', 'Classifying severity', 'Generating report']
+
+  const [completedCount, setCompletedCount] = useState(0)
+  const [dots, setDots] = useState('.')
+
+  useEffect(() => {
+    const timers = STEP_DELAYS.map((delay, i) =>
+      setTimeout(() => setCompletedCount(c => Math.max(c, i + 1)), delay)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  useEffect(() => {
+    if (isComplete) setCompletedCount(STEPS.length)
+  }, [isComplete])
+
+  useEffect(() => {
+    const interval = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 450)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#FAF9F6' }}>
+      <img src={logoIcon} alt="InspectFlow" className="h-40 w-auto" style={{ mixBlendMode: 'multiply' }} />
+      <div className="w-full max-w-sm overflow-hidden flex justify-center h-7">
+        <span className="animate-flowing text-base font-bold tracking-[0.3em]" style={{ color: '#2563EB' }}>Flowing</span>
+      </div>
+      <div className="w-full max-w-sm">
+        <svg viewBox="0 0 320 30" className="w-full" style={{ height: '30px' }}>
+          <path d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15"
+            fill="none" stroke="#bfdbfe" strokeWidth="7" strokeLinecap="round" />
+          <path d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15"
+            fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" className="animate-river" />
+        </svg>
+      </div>
+      <div className="w-full max-w-sm flex flex-col gap-5">
+        {STEPS.map((label, i) => {
+          const done = i < completedCount
+          const active = i === completedCount
+          return (
+            <div key={i} className={`flex items-center gap-4 transition-all duration-500 ${done || active ? 'opacity-100' : 'opacity-20'}`}>
+              <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                {done ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C5F2E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                ) : active ? (
+                  <div className="w-5 h-5 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
+                )}
+              </div>
+              <span className={`text-base font-semibold transition-colors duration-300 ${done || active ? 'text-slate-800' : 'text-slate-300'}`}>
+                {active ? `${label}${dots}` : label}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

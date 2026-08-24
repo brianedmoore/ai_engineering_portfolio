@@ -3,9 +3,10 @@ import logoIcon from '../assets/logo-icon.png'
 
 type HeaderProps = {
   approvedCount?: number
+  inspectionId?: string
 }
 
-export default function Header({ approvedCount }: HeaderProps) {
+export default function Header({ approvedCount, inspectionId }: HeaderProps) {
   return (
     <header className="bg-white border-b border-slate-100 sticky top-0 z-10 shadow-sm">
       <div className="max-w-lg mx-auto px-4 h-16 flex items-center justify-between">
@@ -19,7 +20,7 @@ export default function Header({ approvedCount }: HeaderProps) {
         <div className="flex items-center gap-3">
           {approvedCount !== undefined && approvedCount > 0 && (
             <Link
-              to="/list"
+              to={inspectionId ? `/inspections/${inspectionId}` : '/list'}
               className="text-sm font-semibold px-3 py-1.5 rounded-full active:scale-95 transition-transform"
               style={{ backgroundColor: '#EBF2EC', color: '#2C5F2E' }}
             >

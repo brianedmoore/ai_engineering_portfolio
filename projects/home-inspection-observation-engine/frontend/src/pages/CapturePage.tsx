@@ -277,8 +277,17 @@ export default function CapturePage() {
   return (
     <div className="min-h-screen bg-offwhite">
       {isSubmitting && <LoadingOverlay mode={captureMode!} isComplete={isSubmitComplete} hasAudio={audioReady} photoCount={photoPreviews.length} />}
-      <Header approvedCount={approvedCount} />
+      <Header approvedCount={approvedCount} inspectionId={inspectionId} />
       <div className="max-w-lg mx-auto px-4 py-8">
+
+        {inspectionId && (
+          <button
+            onClick={() => navigate(`/inspections/${inspectionId}`)}
+            className="text-base text-blue-600 mb-6 flex items-center gap-1 hover:text-blue-500 font-medium"
+          >
+            ← Back to inspection
+          </button>
+        )}
 
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">New Observation</h1>

@@ -53,6 +53,7 @@ export default function ReviewPage() {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   const [isApproving, setIsApproving] = useState(false)
+  const [nextObsId, setNextObsId] = useState<string | null>(null)
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [rejectReason, setRejectReason] = useState('bad_photo')
   const [rejectNotes, setRejectNotes] = useState('')
@@ -69,11 +70,44 @@ export default function ReviewPage() {
   const detailsRef = useRef<HTMLDivElement>(null)
   const [localMissingInfo, setLocalMissingInfo] = useState<string[]>([])
 
+  // Reset all per-observation state when the id changes (React Router reuses this component instance
+  // when chaining through observations, so state doesn't reset automatically between navigations)
+  useEffect(() => {
+    setObs(null)
+    setLoading(true)
+    setIsApproving(false)
+    setNextObsId(null)
+    setShowRejectForm(false)
+    setRejectReason('bad_photo')
+    setRejectNotes('')
+    setIsRejecting(false)
+    setError(null)
+    setEditingField(null)
+    setEditValue('')
+    setEditedFields(new Set())
+    setFlashingField(null)
+    setLocalMissingInfo([])
+    setActivePhotoIndex(0)
+    setPhotoFullscreen(false)
+  }, [id])
+
   useEffect(() => {
     fetch(`${API_URL}/observations/${id}`)
       .then(r => r.json())
-      .then(data => { setObs(data); setLoading(false) })
-  }, [id])
+      .then(data => {
+        setObs(data)
+        setLoading(false)
+      })
+    if (inspectionId) {
+      fetch(`${API_URL}/observations?inspection_id=${inspectionId}`)
+        .then(r => r.json())
+        .then((list: Array<{ observation_id: string; status: string }>) => {
+          const next = list.find(o => o.status === 'Ready for Review' && o.observation_id !== id)
+          setNextObsId(next?.observation_id ?? null)
+        })
+        .catch(() => {})
+    }
+  }, [id, inspectionId])
 
   useEffect(() => {
     setLocalMissingInfo(obs?.missing_information ?? [])
@@ -131,14 +165,16 @@ export default function ReviewPage() {
     setEditingField(null)
   }
 
-  async function handleApprove() {
+  async function handleApprove(goNext = false) {
     if (!obs) return
     setIsApproving(true)
     try {
-      await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, {
-        method: 'POST',
-      })
-      navigate(backPath)
+      await fetch(`${API_URL}/observations/${obs.observation_id}/approve`, { method: 'POST' })
+      if (goNext && nextObsId) {
+        navigate(`/review/${nextObsId}`, { state: { from: 'inspection', inspectionId } })
+      } else {
+        navigate(backPath)
+      }
     } catch {
       setError('Failed to approve. Please try again.')
       setIsApproving(false)
@@ -467,13 +503,28 @@ export default function ReviewPage() {
             <p className="text-center text-xs text-slate-400 font-medium -mb-1">You made edits — re-approve to confirm</p>
           )}
           <button
-            onClick={handleApprove}
+            onClick={() => handleApprove(!!nextObsId)}
             disabled={isApproving}
             className="w-full py-4 rounded-2xl text-base font-bold text-white transition-all active:scale-[0.97] cursor-pointer disabled:opacity-40 shadow-md"
             style={{ backgroundColor: '#2C5F2E' }}
           >
-            {isApproving ? 'Approving...' : isAlreadyApproved && editedFields.size > 0 ? 'Re-approve' : 'Approve Observation'}
+            {isApproving
+              ? 'Approving...'
+              : isAlreadyApproved && editedFields.size > 0
+                ? 'Re-approve'
+                : nextObsId
+                  ? 'Approve & Review Next'
+                  : 'Approve'}
           </button>
+          {nextObsId && !isAlreadyApproved && (
+            <button
+              onClick={() => handleApprove(false)}
+              disabled={isApproving}
+              className="text-center text-sm text-slate-400 py-1 disabled:opacity-40"
+            >
+              Approve & go back to inspection
+            </button>
+          )}
           {showRejectForm ? (
             <div className="bg-slate-50 rounded-2xl border border-red-100 p-4 flex flex-col gap-3">
               <p className="text-sm font-semibold text-slate-800">Reason for rejection</p>
