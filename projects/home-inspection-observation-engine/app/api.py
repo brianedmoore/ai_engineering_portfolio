@@ -262,7 +262,7 @@ def process_observation(observation_id: str, session: Session = Depends(get_sess
 
 
 @app.post("/inspections/{inspection_id}/process-queue")
-def process_queue(inspection_id: int, session: Session  =Depends(get_session)):
+def process_queue(inspection_id: int, session: Session = Depends(get_session)):
     raw_observations = session.exec(
         select(StructuredObservation)
         .where(StructuredObservation.inspection_id == inspection_id)
