@@ -15,6 +15,12 @@ class ObservationStatus(str, Enum):
     NEEDS_REVISION = "Needs Revision"
 
 
+class EolSource(str, Enum):
+    UNKNOWN = "unknown"       # No age data found — cannot assess
+    INFERRED = "inferred"     # LLM detected age evidence; rules engine assessed
+    CONFIRMED = "confirmed"   # Inspector explicitly confirmed during review
+
+
 class RejectionReason(str, Enum):
     BAD_PHOTO = "bad_photo"
     BAD_AUDIO = "bad_audio"
@@ -196,6 +202,10 @@ class StructuredObservation(SQLModel, table=True):
     rejection_notes: Optional[str] = None
     llm_usage: Optional[List[dict]] = Field(default=None, sa_column=Column(JSON))
     timings_ms: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    # End-of-life assessment
+    approaching_end_of_life: Optional[bool] = None
+    eol_source: Optional[EolSource] = None
+    eol_reasoning: Optional[str] = None
     
 
 class ObservationPatch(SQLModel):
@@ -211,6 +221,9 @@ class ObservationPatch(SQLModel):
     recommended_action: Optional[str] = None
     responsible_professional: Optional[ResponsibleProfessional] = None
     estimated_cost_range: Optional[EstimatedCostRange] = None
+    approaching_end_of_life: Optional[bool] = None
+    eol_source: Optional[EolSource] = None
+    eol_reasoning: Optional[str] = None
 
 
 class Inspector(SQLModel, table=True):
@@ -262,6 +275,39 @@ class Inspection(SQLModel, table=True):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    # System descriptors — flat columns, one per field in system_descriptors.SYSTEM_DESCRIPTORS.
+    # Add new fields in system_descriptors.py; then add the matching column here.
+    # Roof
+    roof_material: Optional[str] = None
+    roof_estimated_age_years: Optional[float] = None
+    roof_layers: Optional[str] = None
+    # HVAC
+    hvac_system_type: Optional[str] = None
+    hvac_fuel_type: Optional[str] = None
+    hvac_estimated_age_years: Optional[float] = None
+    hvac_filter_condition: Optional[str] = None
+    # Water heater
+    water_heater_fuel_type: Optional[str] = None
+    water_heater_estimated_age_years: Optional[float] = None
+    water_heater_capacity_gallons: Optional[float] = None
+    # Electrical
+    electrical_panel_amperage: Optional[str] = None
+    electrical_panel_manufacturer: Optional[str] = None
+    electrical_wiring_type: Optional[str] = None
+    electrical_gfci_present: Optional[bool] = None
+    # Foundation
+    foundation_type: Optional[str] = None
+    foundation_material: Optional[str] = None
+    # Plumbing
+    plumbing_supply_material: Optional[str] = None
+    plumbing_drain_material: Optional[str] = None
+    plumbing_water_pressure_psi: Optional[float] = None
+    # Exterior
+    exterior_siding_material: Optional[str] = None
+    exterior_driveway_material: Optional[str] = None
+    # Tracks whether each field was "inferred" (LLM) or "confirmed" (inspector).
+    # {"hvac_system_type": "inferred", "roof_material": "confirmed", ...}
+    system_profile_sources: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
 class InspectionCreate(BaseModel):
     address: str
@@ -280,6 +326,29 @@ class InspectionOut(BaseModel):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    # System descriptors
+    roof_material: Optional[str] = None
+    roof_estimated_age_years: Optional[float] = None
+    roof_layers: Optional[str] = None
+    hvac_system_type: Optional[str] = None
+    hvac_fuel_type: Optional[str] = None
+    hvac_estimated_age_years: Optional[float] = None
+    hvac_filter_condition: Optional[str] = None
+    water_heater_fuel_type: Optional[str] = None
+    water_heater_estimated_age_years: Optional[float] = None
+    water_heater_capacity_gallons: Optional[float] = None
+    electrical_panel_amperage: Optional[str] = None
+    electrical_panel_manufacturer: Optional[str] = None
+    electrical_wiring_type: Optional[str] = None
+    electrical_gfci_present: Optional[bool] = None
+    foundation_type: Optional[str] = None
+    foundation_material: Optional[str] = None
+    plumbing_supply_material: Optional[str] = None
+    plumbing_drain_material: Optional[str] = None
+    plumbing_water_pressure_psi: Optional[float] = None
+    exterior_siding_material: Optional[str] = None
+    exterior_driveway_material: Optional[str] = None
+    system_profile_sources: Optional[dict] = None
 
     model_config = {"from_attributes": True}
 
