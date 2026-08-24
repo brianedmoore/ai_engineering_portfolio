@@ -28,6 +28,27 @@ class RejectionReason(str, Enum):
     DUPLICATE = "duplicate"
     OTHER = "other"
 
+
+class NotInspectedReason(str, Enum):
+    # Access — inspector could not physically reach the component
+    ACCESS_BLOCKED = "access_blocked"             # Blocked by furnishings, storage, or debris
+    ACCESS_LOCKED = "access_locked"               # Locked; owner denied or was unavailable
+    # Concealment — component exists but is not visible
+    CONCEALED_MATERIALS = "concealed_materials"   # Covered by drywall, insulation, flooring, etc.
+    CONCEALED_PROPERTY = "concealed_property"     # Covered by personal belongings
+    # Safety — hazardous to attempt inspection
+    SAFETY_ELECTRICAL = "safety_electrical"       # Active electrical hazard
+    SAFETY_STRUCTURAL = "safety_structural"       # Structural instability risk
+    SAFETY_ENVIRONMENTAL = "safety_environmental" # Suspected asbestos, mold, or other hazard
+    # Conditions — cannot test meaningfully under current conditions
+    CONDITIONS_SEASONAL = "conditions_seasonal"   # System off-season (AC in winter, etc.)
+    CONDITIONS_INOPERABLE = "conditions_inoperable" # Utility off or system non-functional
+    # Scope — outside the agreed inspection boundary
+    SCOPE_EXCLUDED = "scope_excluded"             # Excluded by inspection agreement or contract
+    SCOPE_SPECIALIST = "scope_specialist"         # Deferred to specialist (pool, septic, well, etc.)
+    # Other
+    DEMOLISHED = "demolished"                     # Component already demolished or removed
+
     
 class Severity(str, Enum):
     LOW = "Low"
@@ -153,6 +174,42 @@ class Audio(SQLModel, table=True):
     data: bytes
     duration_seconds: Optional[float] = None
     waveform_bars: Optional[str] = None
+
+
+class NotInspectedPhoto(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    not_inspected_id: str
+    filename: str
+    content_type: str
+    data: bytes
+
+
+class NotInspectedObservation(SQLModel, table=True):
+    id: str = Field(primary_key=True)
+    inspection_id: Optional[int] = Field(default=None, foreign_key="inspection.id")
+    # Where and what
+    system: Optional[HomeSystem] = None
+    room_or_area: Optional[str] = None
+    component: Optional[str] = None
+    # Classification — None until the LLM call runs
+    reason: Optional[NotInspectedReason] = None
+    # Description — LLM blends inspector's raw input + reason category into one sentence
+    description: Optional[str] = None
+    # Raw inspector input
+    text_description: Optional[str] = None
+    audio_transcript: Optional[str] = None
+    # Photo IDs reference NotInspectedPhoto rows (optional — photo not required here)
+    photo_ids: Optional[List[int]] = Field(default=None, sa_column=Column(JSON))
+    created_at: Optional[datetime] = None
+
+
+class NotInspectedLLMOutput(BaseModel):
+    """Fields the LLM returns for a not-inspected classification call."""
+    reason: NotInspectedReason
+    system: HomeSystem
+    component: str
+    room_or_area: str
+    description: str  # One professional sentence blending what the inspector said + the reason
 
 
 class LLMObservationOutput(BaseModel):
