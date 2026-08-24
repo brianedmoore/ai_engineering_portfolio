@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { API_URL } from '../api'
 import Header from '../components/Header'
 import logoIcon from '../assets/logo-icon.png'
@@ -13,7 +13,11 @@ export default function CapturePage() {
   const photoInputRef = useRef<HTMLInputElement>(null)
   const addMoreInputRef = useRef<HTMLInputElement>(null)
   const [audioReady, setAudioReady] = useState(false)
-  const canSubmit = photoPreviews.length > 0 && (text.trim().length > 0 || audioReady)
+  const [searchParams] = useSearchParams()
+  const isNIMode = searchParams.get('type') === 'not-inspected'
+  const canSubmit = isNIMode
+    ? (text.trim().length > 0 || audioReady)
+    : (photoPreviews.length > 0 && (text.trim().length > 0 || audioReady))
   const navigate = useNavigate()
   const [captureMode, setCaptureMode] = useState<'generate' | 'queue' | null>(null)
   const isSubmitting = captureMode !== null
@@ -273,10 +277,44 @@ export default function CapturePage() {
     }
   }
 
+  async function handleSubmitNotInspected() {
+    if (!canSubmit) return
+    setCaptureMode('generate')
+    setIsSubmitComplete(false)
+
+    const notInspectedId = crypto.randomUUID()
+    const formData = new FormData()
+    formData.append('not_inspected_id', notInspectedId)
+    if (inspectionId) formData.append('inspection_id', inspectionId)
+    if (text.trim()) formData.append('text_description', text.trim())
+    if (audioBlob) formData.append('audio_file', audioBlob, 'recording.webm')
+    photoFiles.forEach(f => formData.append('photos', f))
+
+    try {
+      const res = await fetch(`${API_URL}/observations/not-inspected`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        setError(errData.detail ?? 'Something went wrong. Please try again.')
+        setCaptureMode(null)
+        setIsSubmitComplete(false)
+        return
+      }
+      setIsSubmitComplete(true)
+      setTimeout(() => navigate(`/inspections/${inspectionId}`), 900)
+    } catch {
+      setError('Could not reach the server. Check your connection and try again.')
+      setCaptureMode(null)
+      setIsSubmitComplete(false)
+    }
+  }
+
 
   return (
     <div className="min-h-screen bg-offwhite">
-      {isSubmitting && <LoadingOverlay mode={captureMode!} isComplete={isSubmitComplete} hasAudio={audioReady} photoCount={photoPreviews.length} />}
+      {isSubmitting && <LoadingOverlay mode={captureMode!} isComplete={isSubmitComplete} hasAudio={audioReady} photoCount={photoPreviews.length} isNotInspected={isNIMode} />}
       <Header approvedCount={approvedCount} inspectionId={inspectionId} />
       <div className="max-w-lg mx-auto px-4 py-8">
 
@@ -289,10 +327,31 @@ export default function CapturePage() {
           </button>
         )}
 
+        {/* Mode toggle */}
+        <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
+          <button
+            onClick={() => { navigate(`/inspections/${inspectionId}/capture`) }}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${!isNIMode ? 'bg-white shadow text-slate-900' : 'text-slate-400'}`}
+          >
+            Observation
+          </button>
+          <button
+            onClick={() => navigate(`/inspections/${inspectionId}/capture?type=not-inspected`)}
+            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${isNIMode ? 'bg-white shadow text-slate-900' : 'text-slate-400'}`}
+          >
+            Not Inspected
+          </button>
+        </div>
+
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">New Observation</h1>
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+            {isNIMode ? 'Not Inspected' : 'New Observation'}
+          </h1>
           <p className="text-base text-slate-400 mt-1.5 italic">
-            Add a <span className="text-blue-700 font-bold not-italic">photo</span> and a <span className="text-sky-400 font-bold not-italic">note or recording</span> to continue.
+            {isNIMode
+              ? 'Describe why this component couldn\'t be inspected.'
+              : <>Add a <span className="text-blue-700 font-bold not-italic">photo</span> and a <span className="text-sky-400 font-bold not-italic">note or recording</span> to continue.</>
+            }
           </p>
         </div>
         {error && (
@@ -314,6 +373,11 @@ export default function CapturePage() {
 
             {photoPreviews.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-3 h-52">
+                {isNIMode && photoPreviews.length === 0 && (
+                  <span className="absolute top-3 left-3 text-xs font-bold bg-white/80 text-slate-500 px-2 py-0.5 rounded-full border border-slate-200">
+                    Optional
+                  </span>
+                )}
                 <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                   <circle cx="12" cy="13" r="4"/>
@@ -574,7 +638,7 @@ export default function CapturePage() {
                     )}
                     <textarea
                       rows={5}
-                      placeholder="Describe what you found..."
+                      placeholder={isNIMode ? 'Describe why it couldn\'t be inspected...' : 'Describe what you found...'}
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       className="w-full text-base text-slate-800 placeholder-slate-400 resize-none outline-none leading-relaxed bg-transparent"
@@ -590,51 +654,80 @@ export default function CapturePage() {
 
         {/* Submit */}
         <div className="mt-6 flex flex-col gap-3">
-          {!canSubmit && (
-            <p className="text-sm text-center text-slate-400">
-              {photoPreviews.length === 0
-                ? <>Add a <span className="text-blue-700 font-bold">photo</span> to continue</>
-                : <>Add a <span className="text-sky-400 font-bold">note or recording</span> to continue</>
-              }
-            </p>
-          )}
-          <button
-            disabled={!canSubmit || isSubmitting}
-            onClick={handleGenerateNow}
-            style={!canSubmit ? {
-              background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
-            } : {}}
-            className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
-              canSubmit && !isSubmitting
-                ? 'bg-blue-700 text-white cursor-pointer shadow-md shadow-blue-200'
-                : 'text-slate-500 cursor-not-allowed'
-            }`}
-          >
-            Generate Now
-          </button>
-          <button
-            disabled={!canSubmit || isSubmitting}
-            onClick={handleAddToQueue}
-            style={!canSubmit ? {
-              background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
-            } : {}}
-            className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
-              canSubmit && !isSubmitting
-                ? 'bg-sky-500 text-white cursor-pointer shadow-md shadow-sky-200'
-                : 'text-slate-500 cursor-not-allowed'
-            }`}
-          >
-            Add to Queue
-          </button>
-          {canSubmit && (
-            <div className="flex flex-col gap-1 px-2">
-              <p className="text-xs text-slate-400">
-                <span className="font-semibold text-blue-700">Generate Now</span> — AI processes immediately, review right away.
-              </p>
-              <p className="text-xs text-slate-400">
-                <span className="font-semibold text-sky-500">Add to Queue</span> — Save now, process all at once when done walking the house.
-              </p>
-            </div>
+          {isNIMode ? (
+            <>
+              {!canSubmit && (
+                <p className="text-sm text-center text-slate-400">
+                  Add a <span className="text-sky-400 font-bold">note or recording</span> to continue
+                </p>
+              )}
+              <button
+                disabled={!canSubmit || isSubmitting}
+                onClick={handleSubmitNotInspected}
+                style={!canSubmit ? {
+                  background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
+                } : {}}
+                className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
+                  canSubmit && !isSubmitting
+                    ? 'bg-indigo-600 text-white cursor-pointer shadow-md shadow-indigo-200'
+                    : 'text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                Submit Not Inspected
+              </button>
+              {canSubmit && (
+                <p className="text-xs text-center text-slate-400">Photos are optional for not-inspected items.</p>
+              )}
+            </>
+          ) : (
+            <>
+              {!canSubmit && (
+                <p className="text-sm text-center text-slate-400">
+                  {photoPreviews.length === 0
+                    ? <>Add a <span className="text-blue-700 font-bold">photo</span> to continue</>
+                    : <>Add a <span className="text-sky-400 font-bold">note or recording</span> to continue</>
+                  }
+                </p>
+              )}
+              <button
+                disabled={!canSubmit || isSubmitting}
+                onClick={handleGenerateNow}
+                style={!canSubmit ? {
+                  background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
+                } : {}}
+                className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
+                  canSubmit && !isSubmitting
+                    ? 'bg-blue-700 text-white cursor-pointer shadow-md shadow-blue-200'
+                    : 'text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                Generate Now
+              </button>
+              <button
+                disabled={!canSubmit || isSubmitting}
+                onClick={handleAddToQueue}
+                style={!canSubmit ? {
+                  background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
+                } : {}}
+                className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
+                  canSubmit && !isSubmitting
+                    ? 'bg-sky-500 text-white cursor-pointer shadow-md shadow-sky-200'
+                    : 'text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                Add to Queue
+              </button>
+              {canSubmit && (
+                <div className="flex flex-col gap-1 px-2">
+                  <p className="text-xs text-slate-400">
+                    <span className="font-semibold text-blue-700">Generate Now</span> — AI processes immediately, review right away.
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    <span className="font-semibold text-sky-500">Add to Queue</span> — Save now, process all at once when done walking the house.
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -645,7 +738,24 @@ export default function CapturePage() {
 
 const STEP_DELAYS = [2500, 5500, 10000, 15000]
 
-function LoadingOverlay({ mode, isComplete, hasAudio, photoCount }: { mode: 'generate' | 'queue'; isComplete: boolean; hasAudio: boolean; photoCount: number }) {
+function LoadingOverlay({ mode, isComplete, hasAudio, photoCount, isNotInspected }: { mode: 'generate' | 'queue'; isComplete: boolean; hasAudio: boolean; photoCount: number; isNotInspected?: boolean }) {
+  if (isNotInspected) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4" style={{ backgroundColor: '#FAF9F6' }}>
+        {isComplete ? (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2C5F2E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        ) : (
+          <div className="w-8 h-8 rounded-full border-[3px] border-indigo-600 border-t-transparent animate-spin" />
+        )}
+        <p className="text-base font-semibold text-slate-700">
+          {isComplete ? 'Saved' : 'Classifying...'}
+        </p>
+      </div>
+    )
+  }
+
   if (mode === 'queue') {
     return (
       <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4" style={{ backgroundColor: '#FAF9F6' }}>

@@ -432,3 +432,28 @@ class InspectorPatch(BaseModel):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
+
+
+class InspectionProfilePatch(BaseModel):
+    """Inspector-confirmed system descriptor updates. All fields touched are marked 'confirmed'."""
+    roof_material: Optional[str] = None
+    roof_estimated_age_years: Optional[float] = None
+    roof_layers: Optional[str] = None
+    hvac_system_type: Optional[str] = None
+    hvac_fuel_type: Optional[str] = None
+    hvac_estimated_age_years: Optional[float] = None
+    hvac_filter_condition: Optional[str] = None
+    water_heater_fuel_type: Optional[str] = None
+    water_heater_estimated_age_years: Optional[float] = None
+    water_heater_capacity_gallons: Optional[float] = None
+    electrical_panel_amperage: Optional[str] = None
+    electrical_panel_manufacturer: Optional[str] = None
+    electrical_wiring_type: Optional[str] = None
+    electrical_gfci_present: Optional[bool] = None
+    foundation_type: Optional[str] = None
+    foundation_material: Optional[str] = None
+    plumbing_supply_material: Optional[str] = None
+    plumbing_drain_material: Optional[str] = None
+    plumbing_water_pressure_psi: Optional[float] = None
+    exterior_siding_material: Optional[str] = None
+    exterior_driveway_material: Optional[str] = None

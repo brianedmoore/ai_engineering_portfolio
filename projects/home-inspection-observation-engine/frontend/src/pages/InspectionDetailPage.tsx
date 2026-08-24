@@ -13,6 +13,29 @@ type Inspection = {
   property_type: string | null
   inspection_date: string | null
   created_at: string | null
+  // System descriptors
+  roof_material: string | null
+  roof_estimated_age_years: number | null
+  roof_layers: string | null
+  hvac_system_type: string | null
+  hvac_fuel_type: string | null
+  hvac_estimated_age_years: number | null
+  hvac_filter_condition: string | null
+  water_heater_fuel_type: string | null
+  water_heater_estimated_age_years: number | null
+  water_heater_capacity_gallons: number | null
+  electrical_panel_amperage: string | null
+  electrical_panel_manufacturer: string | null
+  electrical_wiring_type: string | null
+  electrical_gfci_present: boolean | null
+  foundation_type: string | null
+  foundation_material: string | null
+  plumbing_supply_material: string | null
+  plumbing_drain_material: string | null
+  plumbing_water_pressure_psi: number | null
+  exterior_siding_material: string | null
+  exterior_driveway_material: string | null
+  system_profile_sources: Record<string, string> | null
 }
 
 type ObsSummary = {
@@ -28,12 +51,99 @@ type ObsSummary = {
   audio_transcript: string | null
 }
 
+type NotInspectedObs = {
+  id: string
+  system: string | null
+  room_or_area: string | null
+  component: string | null
+  reason: string | null
+  description: string | null
+}
+
 type QueueState = {
   current: number
   total: number
   label: string
   done: boolean
   firstReadyId: string | null
+}
+
+const SYSTEM_PROFILE_CONFIG = [
+  { system: 'roof', label: 'Roof', fields: [
+    { key: 'roof_material', label: 'Material', type: 'enum', options: ['Asphalt Shingle','Architectural Shingle','Metal','Tile','Wood Shake','Flat / TPO','Flat / Modified Bitumen','Built-Up','Other'] },
+    { key: 'roof_estimated_age_years', label: 'Estimated Age', type: 'number', unit: 'years' },
+    { key: 'roof_layers', label: 'Layers', type: 'enum', options: ['1','2','3+'] },
+  ]},
+  { system: 'hvac', label: 'HVAC', fields: [
+    { key: 'hvac_system_type', label: 'System Type', type: 'enum', options: ['Forced Air','Heat Pump','Radiant / Hydronic','Mini-Split','Window Units','Evaporative Cooler','Other'] },
+    { key: 'hvac_fuel_type', label: 'Fuel Type', type: 'enum', options: ['Natural Gas','Electric','Propane','Oil','Other'] },
+    { key: 'hvac_estimated_age_years', label: 'Estimated Age', type: 'number', unit: 'years' },
+    { key: 'hvac_filter_condition', label: 'Filter Condition', type: 'enum', options: ['Clean','Dirty','Missing','Not Accessible'] },
+  ]},
+  { system: 'water_heater', label: 'Water Heater', fields: [
+    { key: 'water_heater_fuel_type', label: 'Fuel / Type', type: 'enum', options: ['Natural Gas','Electric','Propane','Tankless - Gas','Tankless - Electric','Heat Pump','Solar','Other'] },
+    { key: 'water_heater_estimated_age_years', label: 'Estimated Age', type: 'number', unit: 'years' },
+    { key: 'water_heater_capacity_gallons', label: 'Tank Capacity', type: 'number', unit: 'gallons' },
+  ]},
+  { system: 'electrical', label: 'Electrical', fields: [
+    { key: 'electrical_panel_amperage', label: 'Panel Amperage', type: 'enum', options: ['60A','100A','150A','200A','400A','Unknown'] },
+    { key: 'electrical_panel_manufacturer', label: 'Panel Manufacturer', type: 'string' },
+    { key: 'electrical_wiring_type', label: 'Wiring Type', type: 'enum', options: ['Copper','Aluminum (pre-1972)','Aluminum (modern)','Knob & Tube','Mixed'] },
+    { key: 'electrical_gfci_present', label: 'GFCI Present', type: 'boolean' },
+  ]},
+  { system: 'foundation', label: 'Foundation', fields: [
+    { key: 'foundation_type', label: 'Foundation Type', type: 'enum', options: ['Slab','Crawl Space','Full Basement','Partial Basement','Pier & Beam','Other'] },
+    { key: 'foundation_material', label: 'Material', type: 'enum', options: ['Poured Concrete','Concrete Block','Brick','Stone','Treated Wood','Other'] },
+  ]},
+  { system: 'plumbing', label: 'Plumbing', fields: [
+    { key: 'plumbing_supply_material', label: 'Supply Pipe', type: 'enum', options: ['Copper','PEX','CPVC','Galvanized Steel','Polybutylene','Mixed'] },
+    { key: 'plumbing_drain_material', label: 'Drain Pipe', type: 'enum', options: ['ABS','PVC','Cast Iron','Galvanized','Mixed'] },
+    { key: 'plumbing_water_pressure_psi', label: 'Water Pressure', type: 'number', unit: 'PSI' },
+  ]},
+  { system: 'exterior', label: 'Exterior', fields: [
+    { key: 'exterior_siding_material', label: 'Siding', type: 'enum', options: ['Vinyl','Fiber Cement','Wood','Brick','Stucco','EIFS / Synthetic Stucco','Stone','Metal','Other'] },
+    { key: 'exterior_driveway_material', label: 'Driveway', type: 'enum', options: ['Concrete','Asphalt','Gravel','Paver','Other'] },
+  ]},
+] as const
+
+const REQUIRED_FIELDS: { key: string; label: string }[] = [
+  { key: 'roof_material', label: 'Roof material' },
+  { key: 'hvac_system_type', label: 'HVAC system type' },
+  { key: 'hvac_fuel_type', label: 'HVAC fuel type' },
+  { key: 'water_heater_fuel_type', label: 'Water heater fuel/type' },
+  { key: 'electrical_panel_amperage', label: 'Electrical panel amperage' },
+  { key: 'foundation_type', label: 'Foundation type' },
+  { key: 'plumbing_supply_material', label: 'Plumbing supply material' },
+]
+
+const REASON_LABELS: Record<string, string> = {
+  access_blocked: 'Access Blocked',
+  access_locked: 'Access Locked',
+  concealed_materials: 'Concealed',
+  concealed_property: 'Concealed',
+  safety_electrical: 'Safety Hazard',
+  safety_structural: 'Safety Hazard',
+  safety_environmental: 'Safety Hazard',
+  conditions_seasonal: 'Seasonal',
+  conditions_inoperable: 'Inoperable',
+  scope_excluded: 'Out of Scope',
+  scope_specialist: 'Specialist Required',
+  demolished: 'Demolished',
+}
+
+const REASON_COLORS: Record<string, string> = {
+  access_blocked: 'bg-amber-100 text-amber-700',
+  access_locked: 'bg-amber-100 text-amber-700',
+  concealed_materials: 'bg-slate-100 text-slate-600',
+  concealed_property: 'bg-slate-100 text-slate-600',
+  safety_electrical: 'bg-red-100 text-red-600',
+  safety_structural: 'bg-red-100 text-red-600',
+  safety_environmental: 'bg-red-100 text-red-600',
+  conditions_seasonal: 'bg-blue-100 text-blue-600',
+  conditions_inoperable: 'bg-blue-100 text-blue-600',
+  scope_excluded: 'bg-purple-100 text-purple-600',
+  scope_specialist: 'bg-purple-100 text-purple-600',
+  demolished: 'bg-gray-100 text-gray-500',
 }
 
 export default function InspectionDetailPage() {
@@ -54,6 +164,12 @@ export default function InspectionDetailPage() {
   const [readyExpanded, setReadyExpanded] = useState(true)
   const [acceptedExpanded, setAcceptedExpanded] = useState(true)
   const [rejectedExpanded, setRejectedExpanded] = useState(true)
+  const [notInspected, setNotInspected] = useState<NotInspectedObs[]>([])
+  const [notInspectedExpanded, setNotInspectedExpanded] = useState(true)
+  const [profileExpanded, setProfileExpanded] = useState(false)
+  const [profileEditMode, setProfileEditMode] = useState(false)
+  const [profileDraft, setProfileDraft] = useState<Record<string, string | number | boolean>>({})
+  const [profileSaving, setProfileSaving] = useState(false)
 
   function loadObservations(): Promise<ObsSummary[]> {
     return fetch(`${API}/observations?inspection_id=${id}`).then(r => r.json())
@@ -66,10 +182,12 @@ export default function InspectionDetailPage() {
         headers: { Authorization: `Bearer ${token}` },
       }).then(r => r.json()),
       loadObservations(),
+      fetch(`${API}/inspections/${id}/not-inspected`).then(r => r.json()),
     ])
-      .then(([inspectionData, observationsData]) => {
+      .then(([inspectionData, observationsData, niData]) => {
         setInspection(inspectionData)
         setObservations([...observationsData].reverse())
+        setNotInspected(niData)
         setLoading(false)
       })
       .catch(() => {
@@ -123,6 +241,26 @@ export default function InspectionDetailPage() {
         navigate(`/review/${firstReady.observation_id}`, { state: { from: 'inspection', inspectionId: id } })
       }
     }, 1200)
+  }
+
+  async function handleSaveProfile() {
+    if (!id || Object.keys(profileDraft).length === 0) return
+    setProfileSaving(true)
+    try {
+      const res = await fetch(`${API}/inspections/${id}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(profileDraft),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setInspection(updated)
+        setProfileDraft({})
+        setProfileEditMode(false)
+      }
+    } finally {
+      setProfileSaving(false)
+    }
   }
 
   function formatDate(dateStr: string | null) {
@@ -237,13 +375,21 @@ export default function InspectionDetailPage() {
               </div>
             )}
 
-            {/* Add Observation button */}
-            <button
-              onClick={() => navigate(`/inspections/${id}/capture`)}
-              className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-base mb-6 active:scale-[0.98] transition-transform shadow-md shadow-blue-100"
-            >
-              + Add Observation
-            </button>
+            {/* Action buttons */}
+            <div className="flex gap-3 mb-6">
+              <button
+                onClick={() => navigate(`/inspections/${id}/capture`)}
+                className="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-bold text-base active:scale-[0.98] transition-transform shadow-md shadow-blue-100"
+              >
+                + Observation
+              </button>
+              <button
+                onClick={() => navigate(`/inspections/${id}/capture?type=not-inspected`)}
+                className="flex-1 py-4 rounded-2xl bg-slate-700 text-white font-bold text-base active:scale-[0.98] transition-transform shadow-md shadow-slate-200"
+              >
+                Not Inspected
+              </button>
+            </div>
 
             {/* Observations — three sections */}
             {observations.length === 0 ? (
@@ -291,7 +437,46 @@ export default function InspectionDetailPage() {
                   </div>
                 )}
 
-                {/* River divider between Queue and Processed */}
+                {/* River divider between Queue and Not Inspected */}
+                <div className="py-4">
+                  <svg viewBox="0 0 320 24" className="w-full" style={{ height: '24px' }}>
+                    <path d="M0,12 C26.7,3 53.3,21 80,12 C106.7,3 133.3,21 160,12 C186.7,3 213.3,21 240,12 C266.7,3 293.3,21 320,12"
+                      fill="none" stroke="#e2e8f0" strokeWidth="6" strokeLinecap="round" />
+                    <path d="M0,12 C26.7,3 53.3,21 80,12 C106.7,3 133.3,21 160,12 C186.7,3 213.3,21 240,12 C266.7,3 293.3,21 320,12"
+                      fill="none" stroke="#bfdbfe" strokeWidth="2" strokeLinecap="round" className="animate-river" />
+                  </svg>
+                </div>
+
+                {/* Level 1: Not Inspected */}
+                <button
+                  onClick={() => setNotInspectedExpanded(e => !e)}
+                  className="flex items-center justify-between w-full py-2 mb-3"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Not Inspected</span>
+                    {notInspected.length > 0 && (
+                      <span className="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-0.5 rounded-full">{notInspected.length}</span>
+                    )}
+                  </div>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    className={`transition-transform duration-200 ${notInspectedExpanded ? 'rotate-180' : ''}`}>
+                    <polyline points="6,9 12,15 18,9"/>
+                  </svg>
+                </button>
+
+                {notInspectedExpanded && (
+                  <div className="flex flex-col gap-3 mb-2">
+                    {notInspected.length === 0 ? (
+                      <p className="text-center text-slate-400 text-sm py-3">No not-inspected items.</p>
+                    ) : (
+                      notInspected.map((ni) => (
+                        <NotInspectedCard key={ni.id} ni={ni} />
+                      ))
+                    )}
+                  </div>
+                )}
+
+                {/* River divider between Not Inspected and Processed */}
                 <div className="py-4">
                   <svg viewBox="0 0 320 24" className="w-full" style={{ height: '24px' }}>
                     <path d="M0,12 C26.7,3 53.3,21 80,12 C106.7,3 133.3,21 160,12 C186.7,3 213.3,21 240,12 C266.7,3 293.3,21 320,12"
@@ -445,6 +630,157 @@ export default function InspectionDetailPage() {
 
               </div>
             )}
+
+            {/* House Profile */}
+            <div className="mt-8">
+              <button
+                onClick={() => setProfileExpanded(e => !e)}
+                className="flex items-center justify-between w-full py-2 mb-3"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">House Profile</span>
+                  {inspection && (() => {
+                    const filled = REQUIRED_FIELDS.filter(f => (inspection as any)[f.key] != null).length
+                    return (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${filled === REQUIRED_FIELDS.length ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-600'}`}>
+                        {filled}/{REQUIRED_FIELDS.length} required
+                      </span>
+                    )
+                  })()}
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                  className={`transition-transform duration-200 ${profileExpanded ? 'rotate-180' : ''}`}>
+                  <polyline points="6,9 12,15 18,9"/>
+                </svg>
+              </button>
+
+              {profileExpanded && inspection && (
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col gap-5">
+                  {SYSTEM_PROFILE_CONFIG.map(({ label, fields }) => (
+                    <div key={label}>
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
+                      <div className="flex flex-col gap-2">
+                        {fields.map((field) => {
+                          const rawVal = (inspection as any)[field.key]
+                          const source = inspection.system_profile_sources?.[field.key]
+                          const displayVal = rawVal != null
+                            ? (field.type === 'boolean' ? (rawVal ? 'Yes' : 'No') : `${rawVal}${(field as any).unit ? ' ' + (field as any).unit : ''}`)
+                            : null
+                          const draftVal = profileDraft[field.key]
+
+                          return (
+                            <div key={field.key} className="flex items-center justify-between gap-3">
+                              <span className="text-sm text-slate-500 shrink-0">{field.label}</span>
+                              <div className="flex items-center gap-2 flex-1 justify-end">
+                                {profileEditMode ? (
+                                  field.type === 'enum' ? (
+                                    <select
+                                      value={String(draftVal ?? rawVal ?? '')}
+                                      onChange={(e) => setProfileDraft(d => ({ ...d, [field.key]: e.target.value || undefined }))}
+                                      className="text-sm border border-slate-200 rounded-lg px-2 py-1 text-slate-800 bg-white max-w-[180px]"
+                                    >
+                                      <option value="">— select —</option>
+                                      {(field as any).options.map((o: string) => <option key={o} value={o}>{o}</option>)}
+                                    </select>
+                                  ) : field.type === 'boolean' ? (
+                                    <select
+                                      value={draftVal != null ? String(draftVal) : (rawVal != null ? String(rawVal) : '')}
+                                      onChange={(e) => setProfileDraft(d => ({ ...d, [field.key]: e.target.value === 'true' ? true : e.target.value === 'false' ? false : undefined }))}
+                                      className="text-sm border border-slate-200 rounded-lg px-2 py-1 text-slate-800 bg-white"
+                                    >
+                                      <option value="">— select —</option>
+                                      <option value="true">Yes</option>
+                                      <option value="false">No</option>
+                                    </select>
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      value={String(draftVal ?? rawVal ?? '')}
+                                      onChange={(e) => setProfileDraft(d => ({ ...d, [field.key]: e.target.value ? Number(e.target.value) : undefined }))}
+                                      className="text-sm border border-slate-200 rounded-lg px-2 py-1 text-slate-800 bg-white w-24"
+                                      placeholder={(field as any).unit ?? ''}
+                                    />
+                                  )
+                                ) : (
+                                  <>
+                                    <span className={`text-sm font-medium ${displayVal ? 'text-slate-800' : 'text-slate-300'}`}>
+                                      {displayVal ?? '—'}
+                                    </span>
+                                    {source && (
+                                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${source === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                        {source === 'confirmed' ? 'confirmed' : 'auto'}
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex gap-3 pt-2 border-t border-slate-100">
+                    {profileEditMode ? (
+                      <>
+                        <button
+                          onClick={handleSaveProfile}
+                          disabled={profileSaving || Object.keys(profileDraft).length === 0}
+                          className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+                        >
+                          {profileSaving ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          onClick={() => { setProfileEditMode(false); setProfileDraft({}) }}
+                          className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold active:scale-[0.98] transition-transform"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setProfileEditMode(true)}
+                        className="w-full py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold active:scale-[0.98] transition-transform"
+                      >
+                        Edit Profile
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Generate Report */}
+            {(() => {
+              if (!inspection) return null
+              const missingFields = REQUIRED_FIELDS.filter(f => (inspection as any)[f.key] == null)
+              const canGenerate = missingFields.length === 0
+              return (
+                <div className="mt-6 mb-4">
+                  {!canGenerate && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
+                      <p className="text-sm font-semibold text-amber-800 mb-1">Required before generating report:</p>
+                      <ul className="text-sm text-amber-700 list-disc list-inside">
+                        {missingFields.map(f => <li key={f.key}>{f.label}</li>)}
+                      </ul>
+                      <p className="text-xs text-amber-600 mt-1.5">Fill these in the House Profile section above.</p>
+                    </div>
+                  )}
+                  <button
+                    disabled={!canGenerate}
+                    onClick={() => alert('Report generation coming soon!')}
+                    className={`w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-[0.98] ${
+                      canGenerate
+                        ? 'bg-green-700 text-white shadow-md shadow-green-100 cursor-pointer'
+                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Generate Report
+                  </button>
+                </div>
+              )
+            })()}
           </>
         ) : null}
       </div>
@@ -520,6 +856,35 @@ function ObsCard({ obs, obsNumber, totalCount, failedPhotos, onFailPhoto, onClic
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="9,18 15,12 9,6"/>
         </svg>
+      </div>
+    </div>
+  )
+}
+
+function NotInspectedCard({ ni }: { ni: NotInspectedObs }) {
+  const reasonLabel = ni.reason ? (REASON_LABELS[ni.reason] ?? ni.reason) : null
+  const reasonColor = ni.reason ? (REASON_COLORS[ni.reason] ?? 'bg-slate-100 text-slate-500') : 'bg-slate-100 text-slate-500'
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex gap-3">
+      <div className="w-10 h-10 rounded-xl bg-slate-100 shrink-0 flex items-center justify-center mt-0.5">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+        </svg>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-slate-900 text-base leading-snug truncate">
+          {ni.component ?? 'Unknown component'}
+        </p>
+        {ni.description && (
+          <p className="text-sm text-slate-400 mt-0.5 line-clamp-2 leading-snug">{ni.description}</p>
+        )}
+        <div className="flex flex-wrap gap-1.5 mt-1.5">
+          {ni.room_or_area && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{ni.room_or_area}</span>}
+          {ni.system && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{ni.system}</span>}
+          {reasonLabel && <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${reasonColor}`}>{reasonLabel}</span>}
+        </div>
       </div>
     </div>
   )

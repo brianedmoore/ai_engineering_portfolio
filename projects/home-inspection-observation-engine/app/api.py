@@ -8,7 +8,7 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch, NotInspectedObservation, NotInspectedPhoto
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch, InspectionProfilePatch, NotInspectedObservation, NotInspectedPhoto
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.not_inspected_factory import classify_not_inspected
@@ -504,6 +504,28 @@ def get_inspection(
     inspection = session.get(Inspection, inspection_id)
     if not inspection or inspection.inspector_id != inspector.id:
         raise HTTPException(status_code=404, detail="Inspection not found")
+    return inspection
+
+
+@app.patch("/inspections/{inspection_id}/profile", response_model=InspectionOut)
+def patch_inspection_profile(
+    inspection_id: int,
+    patch: InspectionProfilePatch,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    """Update system descriptor fields for an inspection. All touched fields are marked 'confirmed'."""
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    sources = dict(inspection.system_profile_sources or {})
+    for field, value in patch.model_dump(exclude_none=True).items():
+        setattr(inspection, field, value)
+        sources[field] = "confirmed"
+    inspection.system_profile_sources = sources
+    session.add(inspection)
+    session.commit()
+    session.refresh(inspection)
     return inspection
 
 
