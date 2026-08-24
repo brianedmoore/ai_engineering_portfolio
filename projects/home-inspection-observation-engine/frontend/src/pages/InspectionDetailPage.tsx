@@ -103,6 +103,7 @@ export default function InspectionDetailPage() {
   }
 
   const approvedCount = observations.filter(o => o.status === 'Approved').length
+  const rawCount = observations.filter(o => o.status === 'Raw').length
 
   return (
     <div className="min-h-screen bg-offwhite">
@@ -146,6 +147,28 @@ export default function InspectionDetailPage() {
                 </p>
               )}
             </div>
+
+            {/* Run AI Analysis button — only shown when queued observations exist */}
+            {rawCount > 0 && (
+              <div className="mb-4">
+                <button
+                  onClick={handleProcessQueue}
+                  disabled={isProcessing}
+                  className={`w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-[0.98] shadow-md ${
+                    isProcessing
+                      ? 'bg-amber-400 text-white cursor-not-allowed'
+                      : 'bg-amber-500 text-white cursor-pointer shadow-amber-100 hover:bg-amber-400'
+                  }`}
+                >
+                  {isProcessing
+                    ? 'Running AI Analysis...'
+                    : `Run AI Analysis · ${rawCount} queued`}
+                </button>
+                {processMessage && (
+                  <p className="text-center text-sm mt-2 text-slate-500">{processMessage}</p>
+                )}
+              </div>
+            )}
 
             {/* Add Observation button */}
             <button
