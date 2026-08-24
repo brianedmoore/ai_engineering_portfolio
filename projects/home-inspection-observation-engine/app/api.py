@@ -185,6 +185,18 @@ def get_observation_photo(observation_id: str, photo_id: int, session: Session =
     return Response(content=photo.data, media_type=photo.content_type)
 
 
+@app.get("/observations/{observation_id}/audio")
+def get_observation_audio(observation_id: str, session: Session = Depends(get_session)):
+    audio = session.exec(select(Audio).where(Audio.observation_id == observation_id)).first()
+    if not audio:
+        raise HTTPException(status_code=404, detail="Audio not found")
+    return Response(
+        content=audio.data,
+        media_type=audio.content_type,
+        headers={"Content-Disposition": f"inline; filename=\"{audio.filename}\""}
+    )
+
+
 @app.post("/observations/{observation_id}/process", response_model=StructuredObservation)
 def process_observation(observation_id: str, session: Session = Depends(get_session)):
     observation = session.get(StructuredObservation, observation_id)
