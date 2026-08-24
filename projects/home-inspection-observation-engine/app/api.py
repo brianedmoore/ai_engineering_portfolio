@@ -71,7 +71,10 @@ def create_observation(
         )
 
         t_llm_start = time.perf_counter()
-        result = create_basic_structured_observation(observation_id, observation_input)
+        result = create_basic_structured_observation(
+            observation_id, observation_input,
+            session=session, inspection_id=inspection_id
+        )
         t_llm_ms = round((time.perf_counter() - t_llm_start) * 1000)
         result.text_description = text_description
         result.inspection_id = inspection_id
@@ -231,7 +234,10 @@ def process_observation(observation_id: str, session: Session = Depends(get_sess
         )
 
         t_llm_start = time.perf_counter()
-        result = create_basic_structured_observation(observation_id, observation_input)
+        result = create_basic_structured_observation(
+            observation_id, observation_input,
+            session=session, inspection_id=observation.inspection_id
+        )
         t_llm_ms = round((time.perf_counter() - t_llm_start) * 1000)
 
         observation.title = result.title
@@ -253,6 +259,9 @@ def process_observation(observation_id: str, session: Session = Depends(get_sess
         observation.llm_usage = result.llm_usage
         observation.image_descriptions = image_descriptions
         observation.status = result.status
+        observation.approaching_end_of_life = result.approaching_end_of_life
+        observation.eol_source = result.eol_source
+        observation.eol_reasoning = result.eol_reasoning
         observation.timings_ms = {
             "image_analysis_ms": t_image_ms,
             "llm_call_ms": t_llm_ms,
