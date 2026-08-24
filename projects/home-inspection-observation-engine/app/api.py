@@ -8,9 +8,10 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch, NotInspectedObservation, NotInspectedPhoto
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
+from app.not_inspected_factory import classify_not_inspected
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
 from app.database import create_db_and_tables, get_session
@@ -160,6 +161,86 @@ def create_raw_observation(
     except Exception as e:
         logging.error("Raw observation creation failed: \n%s", traceback.format_exc())
         raise HTTPException(status_code=500, detail="Failed to save observation. Please try again.")
+
+
+@app.post("/observations/not-inspected", response_model=NotInspectedObservation)
+def create_not_inspected_observation(
+    not_inspected_id: str,
+    inspection_id: Optional[int] = Form(default=None),
+    text_description: Optional[str] = Form(default=None),
+    photos: List[UploadFile] = File(default=[]),
+    audio_file: Optional[UploadFile] = File(default=None),
+    session: Session = Depends(get_session)):
+    """
+    Accepts a not-inspected observation (text + optional audio + optional photos),
+    runs a lightweight LLM classification, and returns the persisted record.
+    Audio is transcribed inline via Whisper before the classification call.
+    """
+    tmp_paths = []
+    try:
+        # Save photos
+        photo_rows = []
+        for photo in photos:
+            photo_bytes = photo.file.read()
+            photo_rows.append(NotInspectedPhoto(
+                not_inspected_id=not_inspected_id,
+                filename=photo.filename,
+                content_type=photo.content_type or "image/jpeg",
+                data=photo_bytes,
+            ))
+        for photo_row in photo_rows:
+            session.add(photo_row)
+        session.flush()
+
+        # Transcribe audio if provided
+        audio_transcript: Optional[str] = None
+        if audio_file:
+            audio_bytes = audio_file.file.read()
+            suffix = os.path.splitext(audio_file.filename or "recording.webm")[1] or ".webm"
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                tmp.write(audio_bytes)
+                tmp_paths.append(tmp.name)
+            audio_transcript = transcribe_audio(tmp_paths[-1])
+
+        photo_ids = [p.id for p in photo_rows]
+
+        observation = classify_not_inspected(
+            not_inspected_id=not_inspected_id,
+            inspection_id=inspection_id,
+            text_description=text_description,
+            audio_transcript=audio_transcript,
+            photo_ids=photo_ids,
+        )
+
+        session.add(observation)
+        session.commit()
+        session.refresh(observation)
+        return observation
+
+    except Exception as e:
+        logging.error("Not-inspected observation failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to save not-inspected observation. Please try again.")
+    finally:
+        for path in tmp_paths:
+            if os.path.exists(path):
+                os.unlink(path)
+
+
+@app.get("/not-inspected/{not_inspected_id}", response_model=NotInspectedObservation)
+def get_not_inspected_observation(not_inspected_id: str, session: Session = Depends(get_session)):
+    obs = session.get(NotInspectedObservation, not_inspected_id)
+    if not obs:
+        raise HTTPException(status_code=404, detail="Not-inspected observation not found")
+    return obs
+
+
+@app.get("/inspections/{inspection_id}/not-inspected", response_model=List[NotInspectedObservation])
+def list_not_inspected_observations(inspection_id: int, session: Session = Depends(get_session)):
+    obs = session.exec(
+        select(NotInspectedObservation).where(NotInspectedObservation.inspection_id == inspection_id)
+    ).all()
+    return obs
+
 
 @app.get("/observations/{observation_id}", response_model=StructuredObservation)
 def get_observation(observation_id: str, session: Session = Depends(get_session)):
