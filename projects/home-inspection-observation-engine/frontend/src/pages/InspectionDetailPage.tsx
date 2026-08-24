@@ -48,6 +48,12 @@ export default function InspectionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
   const [failedPhotos, setFailedPhotos] = useState<Set<string>>(new Set())
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processMessage, setProcessMessage] = useState<string | null>(null)
+
+  function loadObservations() {
+    return fetch(`${API}/observations?inspection_id=${id}`).then(r => r.json())
+  }
 
   useEffect(() => {
     if (!id) return
@@ -55,7 +61,7 @@ export default function InspectionDetailPage() {
       fetch(`${API}/inspections/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then(r => r.json()),
-      fetch(`${API}/observations?inspection_id=${id}`).then(r => r.json()),
+      loadObservations(),
     ])
       .then(([inspectionData, observationsData]) => {
         setInspection(inspectionData)
@@ -67,6 +73,29 @@ export default function InspectionDetailPage() {
         setLoading(false)
       })
   }, [id, token])
+
+  async function handleProcessQueue() {
+    if (!id || isProcessing) return
+    setIsProcessing(true)
+    setProcessMessage(null)
+    try {
+      const res = await fetch(`${API}/inspections/${id}/process-queue`, { method: 'POST' })
+      const data = await res.json()
+      const succeeded = data.results?.filter((r: { success: boolean }) => r.success).length ?? 0
+      const failed = data.results?.filter((r: { success: boolean }) => !r.success).length ?? 0
+      setProcessMessage(
+        failed > 0
+          ? `${succeeded} processed · ${failed} failed`
+          : `${succeeded} observation${succeeded !== 1 ? 's' : ''} processed`
+      )
+      const updated = await loadObservations()
+      setObservations([...updated].reverse())
+    } catch {
+      setProcessMessage('Processing failed. Check your connection and try again.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
 
   function formatDate(dateStr: string | null) {
     if (!dateStr) return null

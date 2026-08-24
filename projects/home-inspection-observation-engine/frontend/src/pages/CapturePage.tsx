@@ -15,7 +15,8 @@ export default function CapturePage() {
   const [audioReady, setAudioReady] = useState(false)
   const canSubmit = photoPreviews.length > 0 && (text.trim().length > 0 || audioReady)
   const navigate = useNavigate()
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [captureMode, setCaptureMode] = useState<'generate' | 'queue' | null>(null)
+  const isSubmitting = captureMode !== null
   const [isRecording, setIsRecording] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
@@ -179,14 +180,13 @@ export default function CapturePage() {
     }
   }
 
-  async function handleSubmit() {
+  async function handleGenerateNow() {
     if (!canSubmit) return
-    setIsSubmitting(true)
+    setCaptureMode('generate')
     setIsSubmitComplete(false)
 
     const observationId = crypto.randomUUID()
 
-    // Transcribe audio first if present
     let audioTranscript = ''
     if (audioBlob) {
       try {
@@ -198,12 +198,12 @@ export default function CapturePage() {
         audioTranscript = transcribeData.transcript?.trim() ?? ''
         if (!audioTranscript) {
           setError('No speech detected in your recording. Please re-record in a quieter environment, or add a text note instead.')
-          setIsSubmitting(false)
+          setCaptureMode(null)
           return
         }
       } catch {
         setError('Could not transcribe your audio. Please re-record clearly or switch to a text note.')
-        setIsSubmitting(false)
+        setCaptureMode(null)
         return
       }
     }
@@ -223,7 +223,7 @@ export default function CapturePage() {
         const errData = await res.json().catch(() => ({}))
         const detail = errData.detail ?? 'Something went wrong processing your observation.'
         setError(`${detail} Your photos and notes are intact — tap Submit to try again.`)
-        setIsSubmitting(false)
+        setCaptureMode(null)
         setIsSubmitComplete(false)
         return
       }
@@ -231,9 +231,44 @@ export default function CapturePage() {
       setIsSubmitComplete(true)
       setTimeout(() => navigate(`/review/${data.observation_id}`), 900)
     } catch (err) {
-      console.error('Submit failed:', err)
+      console.error('Generate now failed:', err)
       setError('Could not reach the server. Check your connection and tap Submit to try again.')
-      setIsSubmitting(false)
+      setCaptureMode(null)
+      setIsSubmitComplete(false)
+    }
+  }
+
+  async function handleAddToQueue() {
+    if (!canSubmit) return
+    setCaptureMode('queue')
+    setIsSubmitComplete(false)
+
+    const observationId = crypto.randomUUID()
+    const formData = new FormData()
+    photoFiles.forEach(f => formData.append('photos', f))
+    if (text.trim()) formData.append('text_description', text.trim())
+    if (audioBlob) formData.append('audio_file', audioBlob, 'recording.webm')
+    if (inspectionId) formData.append('inspection_id', inspectionId)
+
+    try {
+      const res = await fetch(`${API_URL}/observations/raw?observation_id=${observationId}`, {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        const detail = errData.detail ?? 'Something went wrong saving your observation.'
+        setError(`${detail} Your photos and notes are intact — tap Add to Queue to try again.`)
+        setCaptureMode(null)
+        setIsSubmitComplete(false)
+        return
+      }
+      setIsSubmitComplete(true)
+      setTimeout(() => navigate(`/inspections/${inspectionId}`), 700)
+    } catch (err) {
+      console.error('Add to queue failed:', err)
+      setError('Could not reach the server. Check your connection and tap Add to Queue to try again.')
+      setCaptureMode(null)
       setIsSubmitComplete(false)
     }
   }
@@ -241,7 +276,7 @@ export default function CapturePage() {
 
   return (
     <div className="min-h-screen bg-offwhite">
-      {isSubmitting && <LoadingOverlay isComplete={isSubmitComplete} hasAudio={audioReady} photoCount={photoPreviews.length} />}
+      {isSubmitting && <LoadingOverlay mode={captureMode!} isComplete={isSubmitComplete} hasAudio={audioReady} photoCount={photoPreviews.length} />}
       <Header approvedCount={approvedCount} />
       <div className="max-w-lg mx-auto px-4 py-8">
 
@@ -545,9 +580,9 @@ export default function CapturePage() {
         </div>
 
         {/* Submit */}
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col gap-3">
           {!canSubmit && (
-            <p className="text-sm text-center mb-3 text-slate-400">
+            <p className="text-sm text-center text-slate-400">
               {photoPreviews.length === 0
                 ? <>Add a <span className="text-blue-700 font-bold">photo</span> to continue</>
                 : <>Add a <span className="text-sky-400 font-bold">note or recording</span> to continue</>
@@ -556,31 +591,35 @@ export default function CapturePage() {
           )}
           <button
             disabled={!canSubmit || isSubmitting}
-            onClick={handleSubmit}
+            onClick={handleGenerateNow}
             style={!canSubmit ? {
               background: 'repeating-linear-gradient(-45deg, #f1f5f9 0px, #f1f5f9 10px, #e2e8f0 10px, #e2e8f0 20px)',
             } : {}}
             className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide transition-all active:scale-[0.97] ${
               canSubmit && !isSubmitting
-                ? 'bg-blue-700 text-white hover:bg-blue-600 cursor-pointer shadow-md shadow-blue-200'
+                ? 'bg-blue-700 text-white cursor-pointer shadow-md shadow-blue-200'
                 : 'text-slate-500 cursor-not-allowed'
             }`}
           >
-            <div className="flex items-center justify-center gap-3">
-              {canSubmit ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                </svg>
-              )}
-              <span>Submit Observation</span>
-            </div>
+            Generate Now
           </button>
+          <button
+            disabled={!canSubmit || isSubmitting}
+            onClick={handleAddToQueue}
+            className={`w-full py-4 rounded-2xl text-base font-bold tracking-wide border-2 transition-all active:scale-[0.97] ${
+              canSubmit && !isSubmitting
+                ? 'border-slate-300 text-slate-700 bg-white cursor-pointer hover:border-slate-400'
+                : 'border-slate-200 text-slate-300 cursor-not-allowed'
+            }`}
+          >
+            Add to Queue
+          </button>
+          {canSubmit && (
+            <p className="text-xs text-center text-slate-400 px-4">
+              <span className="font-semibold text-blue-700">Generate Now</span> — AI processes immediately, review right away.{"  "}
+              <span className="font-semibold text-slate-500">Add to Queue</span> — Save now, process all at once when done walking the house.
+            </p>
+          )}
         </div>
 
       </div>
@@ -590,7 +629,24 @@ export default function CapturePage() {
 
 const STEP_DELAYS = [2500, 5500, 10000, 15000]
 
-function LoadingOverlay({ isComplete, hasAudio, photoCount }: { isComplete: boolean; hasAudio: boolean; photoCount: number }) {
+function LoadingOverlay({ mode, isComplete, hasAudio, photoCount }: { mode: 'generate' | 'queue'; isComplete: boolean; hasAudio: boolean; photoCount: number }) {
+  if (mode === 'queue') {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4" style={{ backgroundColor: '#FAF9F6' }}>
+        {isComplete ? (
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2C5F2E" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        ) : (
+          <div className="w-8 h-8 rounded-full border-[3px] border-blue-600 border-t-transparent animate-spin" />
+        )}
+        <p className="text-base font-semibold text-slate-700">
+          {isComplete ? 'Added to queue' : 'Saving...'}
+        </p>
+      </div>
+    )
+  }
+
   const photoLabel = photoCount > 1 ? 'Analyzing photos' : 'Analyzing photo'
   const STEPS = hasAudio
     ? ['Transcribing audio', photoLabel, 'Examining observation', 'Classifying severity', 'Generating report']
@@ -618,37 +674,26 @@ function LoadingOverlay({ isComplete, hasAudio, photoCount }: { isComplete: bool
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 px-8" style={{ backgroundColor: '#FAF9F6' }}>
       <img src={logoIcon} alt="InspectFlow" className="h-40 w-auto" style={{ mixBlendMode: 'multiply' }} />
 
-      {/* "Flowing" marquee */}
       <div className="w-full max-w-sm overflow-hidden flex justify-center h-7">
         <span className="animate-flowing text-base font-bold tracking-[0.3em]" style={{ color: '#2563EB' }}>
           Flowing
         </span>
       </div>
 
-      {/* River animation */}
       <div className="w-full max-w-sm">
         <svg viewBox="0 0 320 30" className="w-full" style={{ height: '30px' }}>
-          {/* River channel — soft fill */}
           <path
             d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15"
-            fill="none"
-            stroke="#bfdbfe"
-            strokeWidth="7"
-            strokeLinecap="round"
+            fill="none" stroke="#bfdbfe" strokeWidth="7" strokeLinecap="round"
           />
-          {/* Flowing current — animated dashes */}
           <path
             d="M0,15 C26.7,4 53.3,26 80,15 C106.7,4 133.3,26 160,15 C186.7,4 213.3,26 240,15 C266.7,4 293.3,26 320,15"
-            fill="none"
-            stroke="#2563EB"
-            strokeWidth="2.5"
-            strokeLinecap="round"
+            fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round"
             className="animate-river"
           />
         </svg>
       </div>
 
-      {/* Steps */}
       <div className="w-full max-w-sm flex flex-col gap-5">
         {STEPS.map((label, i) => {
           const done = i < completedCount
