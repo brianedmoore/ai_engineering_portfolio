@@ -227,6 +227,22 @@ class LLMObservationOutput(BaseModel):
     responsible_professional: ResponsibleProfessional
     estimated_cost_range: EstimatedCostRange
     confidence: float = Field(ge=0.0, le=1.0)
+    # End-of-life extraction — populated only when age evidence is present in the observation.
+    # eol_component_key must be one of the canonical keys from EOL_LIFESPANS in rules.py.
+    eol_component_key: Optional[str] = Field(
+        default=None,
+        description="Canonical EOL component key (e.g. 'water_heater', 'hvac'). Null if no age evidence found."
+    )
+    eol_detected_age_years: Optional[float] = Field(
+        default=None,
+        description="Estimated component age in years extracted from the observation. Null if not determinable."
+    )
+    # System-level descriptor fields extracted from this observation.
+    # Only include fields you can confidently determine; omit the rest (do not guess).
+    system_profile_updates: Optional[dict] = Field(
+        default=None,
+        description="System descriptor fields extracted from this observation (e.g. {'hvac_system_type': 'Forced Air'})."
+    )
 
 
 class StructuredObservation(SQLModel, table=True):
