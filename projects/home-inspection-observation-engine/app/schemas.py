@@ -358,6 +358,7 @@ class Inspection(SQLModel, table=True):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    weather_data: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     front_of_house_photo_data: Optional[bytes] = None
     front_of_house_photo_content_type: Optional[str] = None
     # System descriptors — flat columns, one per field in system_descriptors.SYSTEM_DESCRIPTORS.
@@ -419,6 +420,7 @@ class InspectionOut(BaseModel):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    weather_data: Optional[dict] = None
     has_front_of_house_photo: bool = False
     # System descriptors
     roof_material: Optional[str] = None

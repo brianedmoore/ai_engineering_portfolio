@@ -9,6 +9,7 @@ import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
 from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch, InspectionProfilePatch, InspectionDetailsPatch, NotInspectedObservation, NotInspectedPhoto
+from app.weather import fetch_weather
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.not_inspected_factory import classify_not_inspected
@@ -510,6 +511,24 @@ def create_inspection(
     return _inspection_out(inspection)
 
 
+@app.post("/inspections/{inspection_id}/fetch-weather", response_model=InspectionOut)
+def refetch_weather(
+    inspection_id: int,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    weather = fetch_weather(inspection.address, inspection.inspection_date or datetime.now(timezone.utc))
+    if weather:
+        inspection.weather_data = weather
+        session.add(inspection)
+        session.commit()
+        session.refresh(inspection)
+    return _inspection_out(inspection)
+
+
 @app.get("/inspections", response_model=List[InspectionOut])
 def list_inspections(
     inspector: Inspector = Depends(get_current_inspector),
@@ -568,7 +587,10 @@ def patch_inspection_details(
     inspection = session.get(Inspection, inspection_id)
     if not inspection or inspection.inspector_id != inspector.id:
         raise HTTPException(status_code=404, detail="Inspection not found")
-    for field, value in patch.model_dump(exclude_unset=True).items():
+    updates = patch.model_dump(exclude_unset=True)
+    if "inspection_date" in updates or "address" in updates:
+        updates["weather_data"] = None  # stale — frontend will re-fetch
+    for field, value in updates.items():
         setattr(inspection, field, value)
     session.add(inspection)
     session.commit()
@@ -615,6 +637,21 @@ def delete_inspection(
     inspection = session.get(Inspection, inspection_id)
     if not inspection or inspection.inspector_id != inspector.id:
         raise HTTPException(status_code=404, detail="Inspection not found")
+
+    observations = session.exec(select(StructuredObservation).where(StructuredObservation.inspection_id == inspection_id)).all()
+    for obs in observations:
+        for photo in session.exec(select(Photo).where(Photo.observation_id == obs.observation_id)).all():
+            session.delete(photo)
+        for audio in session.exec(select(Audio).where(Audio.observation_id == obs.observation_id)).all():
+            session.delete(audio)
+        session.delete(obs)
+
+    not_inspected = session.exec(select(NotInspectedObservation).where(NotInspectedObservation.inspection_id == inspection_id)).all()
+    for ni in not_inspected:
+        for photo in session.exec(select(NotInspectedPhoto).where(NotInspectedPhoto.not_inspected_id == ni.id)).all():
+            session.delete(photo)
+        session.delete(ni)
+
     session.delete(inspection)
     session.commit()
 

@@ -6,6 +6,23 @@ import logoIcon from '../assets/logo-icon.png'
 
 const API = import.meta.env.VITE_API_URL
 
+type WeatherDay = {
+  date: string
+  temp_max_f: number | null
+  temp_min_f: number | null
+  precipitation_in: number | null
+  windspeed_max_mph: number | null
+  weather_code: number | null
+  description: string | null
+}
+
+type WeatherData = {
+  location: { lat: number; lng: number }
+  fetched_at: string
+  temp_at_inspection_f: number | null
+  daily: WeatherDay[]
+}
+
 type Inspection = {
   id: number
   address: string
@@ -14,6 +31,7 @@ type Inspection = {
   inspection_date: string | null
   notes: string | null
   created_at: string | null
+  weather_data: WeatherData | null
   has_front_of_house_photo: boolean
   // System descriptors
   roof_material: string | null
@@ -177,6 +195,7 @@ export default function InspectionDetailPage() {
 
   const [frontOfHouseUrl, setFrontOfHouseUrl] = useState<string | null>(null)
   const frontOfHouseInputRef = useRef<HTMLInputElement>(null)
+  const [weatherRefetching, setWeatherRefetching] = useState(false)
 
   const [detailsEditMode, setDetailsEditMode] = useState(false)
   const [addressDraft, setAddressDraft] = useState('')
@@ -211,6 +230,9 @@ export default function InspectionDetailPage() {
             .then(r => r.blob())
             .then(b => setFrontOfHouseUrl(URL.createObjectURL(b)))
             .catch(() => {})
+        }
+        if (!inspectionData.weather_data) {
+          triggerWeatherFetch()
         }
       })
       .catch(() => {
@@ -316,6 +338,23 @@ export default function InspectionDetailPage() {
     } catch {}
   }
 
+  function triggerWeatherFetch() {
+    if (!id || weatherRefetching) return
+    setWeatherRefetching(true)
+    fetch(`${API}/inspections/${id}/fetch-weather`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(updated => { if (updated) setInspection(updated) })
+      .catch(() => {})
+      .finally(() => setWeatherRefetching(false))
+  }
+
+  function handleRefetchWeather() {
+    triggerWeatherFetch()
+  }
+
   async function handleFrontOfHouseChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !id) return
@@ -346,8 +385,10 @@ export default function InspectionDetailPage() {
         }),
       })
       if (res.ok) {
-        setInspection(await res.json())
+        const data = await res.json()
+        setInspection(data)
         setDetailsEditMode(false)
+        if (!data.weather_data) triggerWeatherFetch()
       }
     } finally {
       setDetailsSaving(false)
@@ -588,6 +629,38 @@ export default function InspectionDetailPage() {
                 </button>
               )}
             </div>
+
+            {/* Weather strip */}
+            {inspection.weather_data ? (
+              <WeatherStrip
+                days={inspection.weather_data.daily}
+                tempAtInspection={inspection.weather_data.temp_at_inspection_f}
+              />
+            ) : weatherRefetching ? (
+              <div className="mb-4 bg-white border border-slate-100 rounded-2xl px-4 py-3 flex items-center gap-3">
+                <div className="w-4 h-4 rounded-full border-2 border-blue-400 border-t-transparent animate-spin shrink-0" />
+                <p className="text-xs text-slate-400">Fetching weather…</p>
+              </div>
+            ) : (
+              <div className="mb-4 bg-white border border-slate-100 rounded-2xl px-4 py-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500">Weather unavailable</p>
+                  <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                    We searched for: <span className="font-medium text-slate-500">{inspection.address}</span>
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                    For best results include the full street address with city and state — e.g. <span className="italic">123 Main St, Atlanta, GA</span>.
+                  </p>
+                </div>
+                <button
+                  onClick={handleRefetchWeather}
+                  disabled={weatherRefetching}
+                  className="shrink-0 text-xs font-semibold text-blue-500 hover:text-blue-400 disabled:opacity-50 transition-colors pt-0.5"
+                >
+                  Try again
+                </button>
+              </div>
+            )}
 
             {/* Run AI Analysis button */}
             {rawCount > 0 && (
@@ -1039,6 +1112,62 @@ export default function InspectionDetailPage() {
             })()}
           </>
         ) : null}
+      </div>
+    </div>
+  )
+}
+
+const WMO_EMOJI: Record<number, string> = {
+  0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+  45: '🌫️', 48: '🌫️',
+  51: '🌦️', 53: '🌦️', 55: '🌧️',
+  61: '🌦️', 63: '🌧️', 65: '🌧️',
+  71: '🌨️', 73: '🌨️', 75: '❄️', 77: '🌨️',
+  80: '🌦️', 81: '🌧️', 82: '⛈️',
+  85: '🌨️', 86: '❄️',
+  95: '⛈️', 96: '⛈️', 99: '⛈️',
+}
+
+function WeatherStrip({ days, tempAtInspection }: { days: WeatherDay[]; tempAtInspection: number | null }) {
+  return (
+    <div className="mb-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Weather · 5 days</p>
+        {tempAtInspection != null && (
+          <p className="text-xs font-semibold text-slate-500">
+            {Math.round(tempAtInspection)}°F at start
+          </p>
+        )}
+      </div>
+      <div className="grid grid-cols-5 gap-1.5">
+        {days.map((day, i) => {
+          const date = new Date(day.date + 'T12:00:00Z')
+          const isLast = i === days.length - 1
+          const emoji = day.weather_code != null ? (WMO_EMOJI[day.weather_code] ?? '🌡️') : '—'
+          const precip = day.precipitation_in != null && day.precipitation_in > 0.01
+          return (
+            <div
+              key={day.date}
+              className={`rounded-2xl p-2.5 flex flex-col items-center gap-1 text-center ${isLast ? 'bg-blue-50 border border-blue-100' : 'bg-white border border-slate-100'}`}
+            >
+              <p className={`text-xs font-semibold ${isLast ? 'text-blue-500' : 'text-slate-400'}`}>
+                {isLast ? 'Day of' : date.toLocaleDateString('en-US', { weekday: 'short' })}
+              </p>
+              <span className="text-lg leading-none">{emoji}</span>
+              <p className="text-xs font-bold text-slate-800">
+                {day.temp_max_f != null ? `${Math.round(day.temp_max_f)}°` : '—'}
+              </p>
+              <p className="text-xs text-slate-400">
+                {day.temp_min_f != null ? `${Math.round(day.temp_min_f)}°` : '—'}
+              </p>
+              {precip && (
+                <p className="text-xs text-blue-400 font-medium leading-none">
+                  {day.precipitation_in!.toFixed(2)}"
+                </p>
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
