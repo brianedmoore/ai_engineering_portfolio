@@ -1097,17 +1097,7 @@ export default function InspectionDetailPage() {
                       <p className="text-xs text-amber-600 mt-1.5">Open House Profile above and confirm or fill each field.</p>
                     </div>
                   )}
-                  <button
-                    disabled={!canGenerate}
-                    onClick={() => alert('Report generation coming soon!')}
-                    className={`w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-[0.98] ${
-                      canGenerate
-                        ? 'bg-green-700 text-white shadow-md shadow-green-100 cursor-pointer'
-                        : 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                    }`}
-                  >
-                    Generate Report
-                  </button>
+                  <ReportDownloadButton inspectionId={id!} token={token!} enabled={canGenerate} />
                 </div>
               )
             })()}
@@ -1306,6 +1296,63 @@ function QueueItemSteps({ current, total, label, itemDone }: {
         })}
       </div>
     </div>
+  )
+}
+
+function ReportDownloadButton({ inspectionId, token, enabled }: { inspectionId: string; token: string; enabled: boolean }) {
+  const [downloading, setDownloading] = useState(false)
+
+  async function handleClick(e: React.MouseEvent) {
+    e.preventDefault()
+    if (!enabled || downloading) return
+    setDownloading(true)
+    try {
+      const res = await fetch(`${API}/inspections/${inspectionId}/report.pdf`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Failed to generate report')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `inspection-report-${inspectionId}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Report generation failed. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={!enabled || downloading}
+      className={`flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-bold text-base transition-all active:scale-[0.98] ${
+        enabled && !downloading
+          ? 'bg-green-700 text-white shadow-md shadow-green-100 cursor-pointer'
+          : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+      }`}
+    >
+      {downloading ? (
+        <>
+          <svg className="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+          </svg>
+          Generating Report…
+        </>
+      ) : (
+        <>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download Report PDF
+        </>
+      )}
+    </button>
   )
 }
 

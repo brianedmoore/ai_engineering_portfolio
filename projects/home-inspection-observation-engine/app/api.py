@@ -16,6 +16,7 @@ from app.not_inspected_factory import classify_not_inspected
 from app.audio_transcription import transcribe_audio
 from app.image_analysis import analyze_image
 from app.database import create_db_and_tables, get_session
+from app.report_builder import build_report_context, render_report_html
 
 app = FastAPI(
     title="Home Inspection Observation Engine",
@@ -756,3 +757,31 @@ def delete_observation(observation_id: str, session: Session = Depends(get_sessi
         session.delete(audio)
     session.delete(observation)
     session.commit()
+
+
+@app.get("/inspections/{inspection_id}/report.pdf")
+def get_report(
+    inspection_id: int,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    try:
+        from weasyprint import HTML
+    except ImportError:
+        raise HTTPException(status_code=500, detail="WeasyPrint not installed. Run: pip install weasyprint")
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    try:
+        context = build_report_context(inspection_id, inspector, session)
+        html_str = render_report_html(context)
+        pdf_bytes = HTML(string=html_str).write_pdf()
+        filename = f"inspection-report-{inspection_id}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except Exception:
+        logger.error("Report generation failed for inspection %s", inspection_id, exc_info=True)
+        raise HTTPException(status_code=500, detail="Report generation failed")

@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Home Inspection Report — {{ inspection.address }}</title>
+<style>
+
+/* ================================================================
+   RESET & BASE
+   ================================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    color: #1e293b;
+    line-height: 1.55;
+    background: white;
+}
+
+/* ================================================================
+   PAGE SETUP — CSS Paged Media
+   ================================================================ */
+@page {
+    size: letter;
+    margin: 0.8in 0.75in 0.9in;
+}
+
+@page cover-page {
+    margin: 0;
+}
+
+@page :not(:first) {
+    @top-left {
+        content: "HOME INSPECTION REPORT";
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7pt;
+        color: #94a3b8;
+        font-weight: bold;
+        letter-spacing: 0.1em;
+        padding-top: 0.25in;
+    }
+    @top-right {
+        content: "{{ inspection.address | replace('"', '') | truncate(55, True, '…') }}";
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7pt;
+        color: #94a3b8;
+        padding-top: 0.25in;
+    }
+    @bottom-center {
+        content: counter(page) " of " counter(pages);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 7.5pt;
+        color: #94a3b8;
+        padding-bottom: 0.25in;
+    }
+}
+
+/* ================================================================
+   PAGE BREAK HELPERS
+   ================================================================ */
+.new-page          { page-break-before: always; }
+.no-break          { page-break-inside: avoid; }
+.cover-page-wrap   { page: cover-page; }
+
+/* ================================================================
+   COVER PAGE
+   ================================================================ */
+.cover-page-wrap {
+    width: 8.5in;
+    height: 11in;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    overflow: hidden;
+}
+
+.cover-hero {
+    width: 100%;
+    height: 3.9in;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.cover-hero img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cover-hero-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(145deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cover-hero-placeholder-text {
+    font-size: 11pt;
+    color: rgba(255,255,255,0.3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
+
+.cover-body {
+    flex: 1;
+    padding: 0.38in 0.6in 0.32in;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+/* Top block — address + meta */
+.cover-label {
+    font-size: 7pt;
+    font-weight: bold;
+    letter-spacing: 0.18em;
+    color: #94a3b8;
+    text-transform: uppercase;
+    margin-bottom: 5pt;
+}
+
+.cover-address {
+    font-size: 21pt;
+    font-weight: bold;
+    color: #0f172a;
+    line-height: 1.15;
+    margin-bottom: 11pt;
+}
+
+.cover-meta-row {
+    display: flex;
+    gap: 28pt;
+    margin-bottom: 14pt;
+    flex-wrap: wrap;
+}
+
+.cover-meta-item {}
+
+.cover-meta-label {
+    font-size: 6.5pt;
+    font-weight: bold;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 1pt;
+}
+
+.cover-meta-value {
+    font-size: 10pt;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+/* Severity summary bar */
+.cover-sev-bar {
+    display: flex;
+    gap: 8pt;
+    margin-bottom: 16pt;
+    flex-wrap: wrap;
+}
+
+.sev-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5pt;
+    padding: 4pt 10pt;
+    border-radius: 20pt;
+    font-size: 8.5pt;
+    font-weight: bold;
+    border: 1pt solid;
+}
+
+.sev-dot {
+    width: 7pt;
+    height: 7pt;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+.chip-safety     { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.chip-deficiency { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+.chip-advisory   { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+
+/* Inspector strip */
+.cover-inspector-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11pt 0;
+    border-top: 1pt solid #e2e8f0;
+    border-bottom: 1pt solid #e2e8f0;
+    margin-bottom: 13pt;
+    gap: 12pt;
+}
+
+.cover-inspector-left {
+    display: flex;
+    align-items: center;
+    gap: 11pt;
+}
+
+.inspector-avatar {
+    width: 42pt;
+    height: 42pt;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 1.5pt solid #e2e8f0;
+}
+
+.inspector-avatar-placeholder {
+    width: 42pt;
+    height: 42pt;
+    border-radius: 50%;
+    background: #e2e8f0;
+    flex-shrink: 0;
+}
+
+.inspector-name {
+    font-size: 12pt;
+    font-weight: bold;
+    color: #0f172a;
+    margin-bottom: 2pt;
+}
+
+.inspector-sub {
+    font-size: 8pt;
+    color: #64748b;
+    line-height: 1.5;
+}
+
+.cover-logo {
+    max-height: 38pt;
+    max-width: 130pt;
+    object-fit: contain;
+}
+
+/* Weather strip */
+.weather-strip {
+    display: flex;
+    gap: 4pt;
+}
+
+.weather-cell {
+    flex: 1;
+    text-align: center;
+    padding: 6pt 3pt;
+    border-radius: 5pt;
+    background: #f8fafc;
+    border: 1pt solid #f1f5f9;
+}
+
+.weather-cell-today {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+}
+
+.w-label {
+    font-size: 6pt;
+    font-weight: bold;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 1pt;
+}
+
+.w-today-label {
+    font-size: 6pt;
+    font-weight: bold;
+    color: #2563eb;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    margin-bottom: 1pt;
+}
+
+.w-emoji     { font-size: 13pt; display: block; line-height: 1.3; }
+.w-temp      { font-size: 7pt; font-weight: bold; color: #1e293b; margin-top: 2pt; }
+.w-precip    { font-size: 6pt; color: #94a3b8; margin-top: 1pt; }
+.w-starttemp { font-size: 6.5pt; font-weight: bold; color: #2563eb; margin-top: 2pt; }
+
+/* ================================================================
+   PAGE TITLE BLOCK (used on all interior pages)
+   ================================================================ */
+.page-title-block {
+    margin-bottom: 18pt;
+    padding-bottom: 10pt;
+    border-bottom: 2pt solid #0f172a;
+}
+
+.page-eyebrow {
+    font-size: 7pt;
+    font-weight: bold;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 3pt;
+}
+
+.page-title {
+    font-size: 20pt;
+    font-weight: bold;
+    color: #0f172a;
+    line-height: 1.15;
+    margin-bottom: 4pt;
+}
+
+.page-subtitle {
+    font-size: 9pt;
+    color: #64748b;
+}
+
+/* ================================================================
+   BODY TEXT
+   ================================================================ */
+.intro-text {
+    font-size: 9.5pt;
+    color: #475569;
+    line-height: 1.65;
+    margin-bottom: 14pt;
+}
+
+/* ================================================================
+   ABOUT THIS REPORT — Legend cards
+   ================================================================ */
+.legend-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 10pt;
+    margin-bottom: 16pt;
+}
+
+.legend-card {
+    display: flex;
+    gap: 14pt;
+    align-items: flex-start;
+    padding: 12pt 14pt;
+    border-radius: 7pt;
+    border: 1pt solid;
+    page-break-inside: avoid;
+}
+
+.legend-icon-wrap {
+    width: 34pt;
+    height: 34pt;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15pt;
+    flex-shrink: 0;
+    font-weight: bold;
+}
+
+.legend-title {
+    font-size: 11pt;
+    font-weight: bold;
+    margin-bottom: 3pt;
+}
+
+.legend-body {
+    font-size: 9pt;
+    line-height: 1.6;
+    color: #475569;
+}
+
+/* ================================================================
+   EXECUTIVE SUMMARY
+   ================================================================ */
+.exec-card {
+    display: flex;
+    gap: 14pt;
+    align-items: flex-start;
+    padding: 13pt 14pt;
+    border-radius: 7pt;
+    border: 1pt solid #e2e8f0;
+    margin-bottom: 10pt;
+    page-break-inside: avoid;
+    border-left: 5pt solid;
+}
+
+.exec-num {
+    font-size: 22pt;
+    font-weight: bold;
+    line-height: 1;
+    min-width: 20pt;
+    text-align: right;
+    padding-top: 1pt;
+    opacity: 0.2;
+}
+
+.exec-finding-ref {
+    font-size: 7.5pt;
+    font-family: 'Courier New', Courier, monospace;
+    color: #94a3b8;
+    margin-bottom: 3pt;
+}
+
+.exec-finding-title {
+    font-size: 11pt;
+    font-weight: bold;
+    color: #0f172a;
+    margin-bottom: 5pt;
+    line-height: 1.3;
+}
+
+.exec-finding-body {
+    font-size: 9pt;
+    color: #475569;
+    line-height: 1.6;
+}
+
+/* ================================================================
+   SECTION HEADER (each building system)
+   ================================================================ */
+.section-hdr {
+    margin-bottom: 16pt;
+    padding-bottom: 10pt;
+    border-bottom: 2pt solid #0f172a;
+    page-break-after: avoid;
+}
+
+.section-eyebrow {
+    font-size: 7pt;
+    font-weight: bold;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 3pt;
+}
+
+.section-name {
+    font-size: 18pt;
+    font-weight: bold;
+    color: #0f172a;
+    margin-bottom: 7pt;
+}
+
+.section-chips {
+    display: flex;
+    gap: 6pt;
+    flex-wrap: wrap;
+}
+
+.section-chip {
+    font-size: 7.5pt;
+    font-weight: bold;
+    padding: 2pt 9pt;
+    border-radius: 20pt;
+    border: 1pt solid;
+}
+
+/* ================================================================
+   FINDING CARD
+   ================================================================ */
+.finding-card {
+    margin-bottom: 14pt;
+    border-radius: 7pt;
+    border: 1pt solid #e2e8f0;
+    overflow: hidden;
+    page-break-inside: avoid;
+    background: white;
+}
+
+.finding-top {
+    padding: 10pt 14pt 9pt;
+    border-left: 5pt solid;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8pt;
+}
+
+.finding-badges {
+    display: flex;
+    align-items: center;
+    gap: 6pt;
+    flex-wrap: wrap;
+}
+
+.sev-badge {
+    font-size: 7.5pt;
+    font-weight: bold;
+    padding: 2.5pt 9pt;
+    border-radius: 20pt;
+    border: 1pt solid;
+    white-space: nowrap;
+}
+
+.sub-badge {
+    font-size: 7pt;
+    font-weight: 600;
+    padding: 2pt 8pt;
+    border-radius: 20pt;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1pt solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.finding-ref {
+    font-size: 8pt;
+    font-weight: bold;
+    color: #cbd5e1;
+    font-family: 'Courier New', Courier, monospace;
+    white-space: nowrap;
+    padding-top: 2pt;
+}
+
+.finding-title {
+    font-size: 11.5pt;
+    font-weight: bold;
+    color: #0f172a;
+    padding: 7pt 14pt 8pt;
+    border-bottom: 1pt solid #f1f5f9;
+    line-height: 1.3;
+}
+
+.finding-body {
+    padding: 10pt 14pt 12pt;
+}
+
+.finding-desc {
+    font-size: 9.5pt;
+    color: #334155;
+    line-height: 1.65;
+    margin-bottom: 9pt;
+}
+
+.finding-action {
+    display: flex;
+    gap: 8pt;
+    align-items: flex-start;
+    font-size: 9.5pt;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 9pt;
+    padding: 7pt 10pt;
+    background: #f8fafc;
+    border-radius: 5pt;
+    border-left: 3pt solid #cbd5e1;
+    line-height: 1.5;
+}
+
+.finding-action-arrow {
+    color: #94a3b8;
+    flex-shrink: 0;
+    font-size: 11pt;
+    line-height: 1.4;
+}
+
+.finding-cost {
+    font-size: 8.5pt;
+    color: #64748b;
+    margin-bottom: 4pt;
+}
+
+.finding-location {
+    font-size: 7.5pt;
+    color: #94a3b8;
+}
+
+.finding-photo {
+    width: 100%;
+    max-height: 220pt;
+    object-fit: cover;
+    display: block;
+    border-top: 1pt solid #f1f5f9;
+}
+
+/* Safety Hazard */
+.sev-safety .finding-top  { background: #fef2f2; border-color: #dc2626; }
+.sev-safety .sev-badge    { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+.sev-safety .finding-title { color: #9f1239; }
+
+/* Deficiency */
+.sev-deficiency .finding-top  { background: #fffbeb; border-color: #d97706; }
+.sev-deficiency .sev-badge    { background: #fffbeb; color: #d97706; border-color: #fde68a; }
+
+/* Advisory */
+.sev-advisory .finding-top  { background: #eff6ff; border-color: #2563eb; }
+.sev-advisory .sev-badge    { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+
+/* ================================================================
+   EOL TABLE
+   ================================================================ */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin-top: 12pt;
+}
+
+.data-table thead th {
+    text-align: left;
+    padding: 7pt 10pt;
+    background: #0f172a;
+    color: white;
+    font-size: 7.5pt;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.data-table thead th:first-child { border-radius: 4pt 0 0 0; }
+.data-table thead th:last-child  { border-radius: 0 4pt 0 0; }
+
+.data-table tbody td {
+    padding: 7pt 10pt;
+    border-bottom: 1pt solid #f1f5f9;
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.data-table tbody tr:nth-child(even) td { background: #f8fafc; }
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+.eol-badge {
+    display: inline-block;
+    font-size: 7pt;
+    font-weight: bold;
+    padding: 1.5pt 7pt;
+    border-radius: 10pt;
+    background: #fffbeb;
+    color: #d97706;
+    border: 1pt solid #fde68a;
+}
+
+.ref-mono {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 7.5pt;
+    color: #94a3b8;
+}
+
+/* ================================================================
+   NOT INSPECTED TABLE
+   ================================================================ */
+.ni-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin-top: 12pt;
+}
+
+.ni-table thead th {
+    text-align: left;
+    padding: 7pt 10pt;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 7pt;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-bottom: 2pt solid #e2e8f0;
+}
+
+.ni-table tbody td {
+    padding: 7pt 10pt;
+    border-bottom: 1pt solid #f1f5f9;
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.ni-table tbody tr:last-child td { border-bottom: none; }
+
+.reason-badge {
+    display: inline-block;
+    font-size: 7.5pt;
+    font-weight: 600;
+    padding: 1.5pt 7pt;
+    border-radius: 10pt;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1pt solid #e2e8f0;
+}
+
+/* ================================================================
+   PRIORITY ACTION TABLE
+   ================================================================ */
+.priority-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.5pt;
+    margin-top: 12pt;
+}
+
+.priority-table thead th {
+    text-align: left;
+    padding: 7pt 10pt;
+    background: #0f172a;
+    color: white;
+    font-size: 7pt;
+    font-weight: bold;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.priority-table thead th:first-child { border-radius: 4pt 0 0 0; }
+.priority-table thead th:last-child  { border-radius: 0 4pt 0 0; }
+
+.priority-table tbody td {
+    padding: 8pt 10pt;
+    border-bottom: 1pt solid #f1f5f9;
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.priority-table tbody tr:nth-child(even) td { background: #f8fafc; }
+.priority-table tbody tr:last-child td { border-bottom: none; }
+
+/* ================================================================
+   DISCLOSURES
+   ================================================================ */
+.disclosure-item {
+    margin-bottom: 14pt;
+    page-break-inside: avoid;
+}
+
+.disclosure-title {
+    font-size: 10pt;
+    font-weight: bold;
+    color: #0f172a;
+    margin-bottom: 4pt;
+}
+
+.disclosure-body {
+    font-size: 8.5pt;
+    color: #475569;
+    line-height: 1.7;
+}
+
+/* ================================================================
+   UTILITIES
+   ================================================================ */
+.divider {
+    border: none;
+    border-top: 1pt solid #e2e8f0;
+    margin: 14pt 0;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 20pt;
+    color: #94a3b8;
+    font-size: 9pt;
+    font-style: italic;
+    background: #f8fafc;
+    border-radius: 7pt;
+    border: 1pt dashed #e2e8f0;
+    margin-top: 10pt;
+}
+
+.text-mono { font-family: 'Courier New', Courier, monospace; }
+.text-muted { color: #94a3b8; }
+.text-small { font-size: 8pt; }
+.fw-bold { font-weight: bold; }
+
+</style>
+</head>
+<body>
+
+{# ================================================================
+   COVER PAGE
+   ================================================================ #}
+<div class="cover-page-wrap">
+
+  <div class="cover-hero">
+    {% if front_of_house %}
+      <img src="{{ front_of_house }}" alt="Property photo">
+    {% else %}
+      <div class="cover-hero-placeholder">
+        <span class="cover-hero-placeholder-text">Home Inspection Report</span>
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="cover-body">
+    <div>
+      <div class="cover-label">Home Inspection Report</div>
+      <div class="cover-address">{{ inspection.address }}</div>
+
+      <div class="cover-meta-row">
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">Client</div>
+          <div class="cover-meta-value">{{ inspection.client_name or "—" }}</div>
+        </div>
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">Date</div>
+          <div class="cover-meta-value">{{ inspection_date_fmt }}</div>
+        </div>
+        {% if inspection.property_type %}
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">Property Type</div>
+          <div class="cover-meta-value">{{ inspection.property_type }}</div>
+        </div>
+        {% endif %}
+        <div class="cover-meta-item">
+          <div class="cover-meta-label">Total Findings</div>
+          <div class="cover-meta-value">{{ total_findings }}</div>
+        </div>
+      </div>
+
+      <div class="cover-sev-bar">
+        <span class="sev-chip chip-safety">
+          <span class="sev-dot" style="background:#dc2626;"></span>
+          {{ safety_count }} Safety Hazard{{ "s" if safety_count != 1 else "" }}
+        </span>
+        <span class="sev-chip chip-deficiency">
+          <span class="sev-dot" style="background:#d97706;"></span>
+          {{ deficiency_count }} Deficien{{ "cies" if deficiency_count != 1 else "cy" }}
+        </span>
+        <span class="sev-chip chip-advisory">
+          <span class="sev-dot" style="background:#2563eb;"></span>
+          {{ advisory_count }} Advisor{{ "ies" if advisory_count != 1 else "y" }}
+        </span>
+      </div>
+    </div>
+
+    <div>
+      <div class="cover-inspector-strip">
+        <div class="cover-inspector-left">
+          {% if inspector_photo %}
+            <img class="inspector-avatar" src="{{ inspector_photo }}" alt="{{ inspector.name }}">
+          {% else %}
+            <div class="inspector-avatar-placeholder"></div>
+          {% endif %}
+          <div>
+            <div class="inspector-name">{{ inspector.name or "Inspector" }}</div>
+            <div class="inspector-sub">
+              {% if inspector.company_name %}{{ inspector.company_name }}{% if inspector.license_number %}&nbsp;&nbsp;·&nbsp;&nbsp;{% endif %}{% endif %}
+              {% if inspector.license_number %}License #{{ inspector.license_number }}{% endif %}
+            </div>
+            <div class="inspector-sub">
+              {% if inspector.phone %}{{ inspector.phone }}{% if inspector.email %}&nbsp;&nbsp;·&nbsp;&nbsp;{% endif %}{% endif %}
+              {% if inspector.email %}{{ inspector.email }}{% endif %}
+            </div>
+          </div>
+        </div>
+        {% if company_logo %}
+          <img class="cover-logo" src="{{ company_logo }}" alt="Company logo">
+        {% endif %}
+      </div>
+
+      {% if weather and weather.daily %}
+      <div class="weather-strip">
+        {% for day in weather.daily %}
+        {% set parts = day.date.split('-') %}
+        {% set is_today = loop.last %}
+        <div class="weather-cell{% if is_today %} weather-cell-today{% endif %}">
+          {% if is_today %}
+            <div class="w-today-label">Inspection</div>
+          {% else %}
+            <div class="w-label">{{ month_abbr[parts[1]|int - 1] }} {{ parts[2] }}</div>
+          {% endif %}
+          <span class="w-emoji">{{ wmo_emoji.get(day.weather_code, "🌡") }}</span>
+          <div class="w-temp">
+            {% if day.temp_max_f is not none %}{{ day.temp_max_f | int }}°{% endif %}
+            {% if day.temp_max_f is not none and day.temp_min_f is not none %}/{% endif %}
+            {% if day.temp_min_f is not none %}{{ day.temp_min_f | int }}°{% endif %}
+          </div>
+          {% if day.precipitation_in %}
+          <div class="w-precip">{{ "%.2f" | format(day.precipitation_in) }}"</div>
+          {% endif %}
+          {% if is_today and weather.temp_at_inspection_f is not none %}
+          <div class="w-starttemp">{{ weather.temp_at_inspection_f | int }}°F at start</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+
+{# ================================================================
+   ABOUT THIS REPORT
+   ================================================================ #}
+<div class="new-page">
+  <div class="page-title-block">
+    <div class="page-eyebrow">Overview</div>
+    <div class="page-title">About This Report</div>
+    <div class="page-subtitle">
+      {{ total_findings }} finding{{ "s" if total_findings != 1 else "" }} across
+      {{ sections | length }} system{{ "s" if sections | length != 1 else "" }} —
+      inspected {{ inspection_date_fmt }}
+    </div>
+  </div>
+
+  <p class="intro-text">
+    This report documents conditions observed at the property on {{ inspection_date_fmt }}.
+    Findings are organized by building system and rated using a three-tier severity system
+    to help you prioritize action. Every finding includes a recommended next step and a
+    general cost magnitude. Finding IDs (e.g., §2.3) cross-reference the
+    Priority Action Items table at the back of this report.
+  </p>
+
+  <div class="legend-stack">
+    <div class="legend-card no-break" style="background:#fef2f2; border-color:#fecaca;">
+      <div class="legend-icon-wrap" style="background:#fee2e2; color:#dc2626;">⚠</div>
+      <div>
+        <div class="legend-title" style="color:#dc2626;">Safety Hazard</div>
+        <div class="legend-body">
+          A condition that poses a risk of injury or harm to occupants.
+          <strong>Immediate Safety</strong> items must be corrected before occupancy.
+          <strong>Safety Upgrade</strong> items were legal at the time of construction
+          but are now recognized code hazards.
+        </div>
+      </div>
+    </div>
+
+    <div class="legend-card no-break" style="background:#fffbeb; border-color:#fde68a;">
+      <div class="legend-icon-wrap" style="background:#fef3c7; color:#d97706;">🔧</div>
+      <div>
+        <div class="legend-title" style="color:#d97706;">Deficiency</div>
+        <div class="legend-body">
+          A functional failure, significant expense, or condition requiring specialist evaluation.
+          Sub-types: <strong>Major Repair</strong> (licensed specialist required),
+          <strong>Repair / Replace</strong> (general contractor level),
+          <strong>Evaluate</strong> (inspector could not fully assess — specialist needed),
+          <strong>End of Life</strong> (functional but aging — budget for replacement).
+        </div>
+      </div>
+    </div>
+
+    <div class="legend-card no-break" style="background:#eff6ff; border-color:#bfdbfe;">
+      <div class="legend-icon-wrap" style="background:#dbeafe; color:#2563eb;">ℹ</div>
+      <div>
+        <div class="legend-title" style="color:#2563eb;">Advisory</div>
+        <div class="legend-body">
+          Maintenance needs, monitoring items, and informational context.
+          <strong>Maintenance</strong> items are routine upkeep that is overdue.
+          <strong>Monitor</strong> items need watching but no action now.
+          <strong>Informational</strong> items require no action — they provide context for the buyer.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="intro-text" style="margin-top:4pt;">
+    <strong>Cost estimates</strong> are general magnitude approximations, not contractor quotes.
+    Obtain professional bids before negotiating repairs.
+    <strong>Satisfactory items</strong> are not written as findings — the absence of a finding
+    for a component means no deficiency was observed.
+    Items that could not be inspected are listed in the Not Inspected section.
+  </p>
+</div>
+
+
+{# ================================================================
+   EXECUTIVE SUMMARY
+   ================================================================ #}
+{% if executive_summary %}
+<div class="new-page">
+  <div class="page-title-block">
+    <div class="page-eyebrow">Summary</div>
+    <div class="page-title">Executive Summary</div>
+    <div class="page-subtitle">Top priority items — Safety Hazards and significant Deficiencies</div>
+  </div>
+
+  <p class="intro-text">
+    The following {{ executive_summary | length }} finding{{ "s" if executive_summary | length != 1 else "" }}
+    represent the highest-priority items from this inspection.
+    All require attention before or shortly after closing. See each finding in the body of the report for full detail.
+  </p>
+
+  {% for f in executive_summary %}
+  {% set sev = f.obs.severity or "Advisory" %}
+  <div class="exec-card no-break" style="border-color:{{ f.severity_color }}; background:{{ f.severity_bg }};">
+    <div class="exec-num" style="color:{{ f.severity_color }};">{{ loop.index }}</div>
+    <div style="flex:1; min-width:0;">
+      <div class="exec-finding-ref">
+        §{{ f.id }} &nbsp;·&nbsp; {{ sev }}{% if f.obs.sub_category %} — {{ f.obs.sub_category }}{% endif %}
+      </div>
+      <div class="exec-finding-title">
+        {% if f.obs.system %}{{ f.obs.system }}{% endif %}
+        {% if f.obs.component %} — {{ f.obs.component }}{% endif %}
+        {% if f.obs.title %}: {{ f.obs.title }}{% endif %}
+      </div>
+      <div class="exec-finding-body">
+        {{ f.obs.plain_english_summary or f.obs.professional_report_description or "—" }}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+
+{# ================================================================
+   BODY BY SYSTEM
+   ================================================================ #}
+{% for section in sections %}
+<div class="new-page">
+  <div class="section-hdr">
+    <div class="section-eyebrow">Section {{ section.number }}</div>
+    <div class="section-name">{{ section.name }}</div>
+    <div class="section-chips">
+      {% if section.safety_count > 0 %}
+      <span class="section-chip" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">
+        {{ section.safety_count }} Safety Hazard{{ "s" if section.safety_count != 1 else "" }}
+      </span>
+      {% endif %}
+      {% if section.deficiency_count > 0 %}
+      <span class="section-chip" style="background:#fffbeb;color:#d97706;border-color:#fde68a;">
+        {{ section.deficiency_count }} Deficien{{ "cies" if section.deficiency_count != 1 else "cy" }}
+      </span>
+      {% endif %}
+      {% if section.advisory_count > 0 %}
+      <span class="section-chip" style="background:#eff6ff;color:#2563eb;border-color:#bfdbfe;">
+        {{ section.advisory_count }} Advisor{{ "ies" if section.advisory_count != 1 else "y" }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+
+  {% for f in section.findings %}
+  {% set sev = f.obs.severity or "Advisory" %}
+  <div class="finding-card {{ f.sev_class }}">
+
+    <div class="finding-top" style="border-color:{{ f.severity_color }};">
+      <div class="finding-badges">
+        <span class="sev-badge">{{ sev }}</span>
+        {% if f.obs.sub_category %}
+        <span class="sub-badge">{{ f.obs.sub_category }}</span>
+        {% endif %}
+        {% if f.obs.approaching_end_of_life %}
+        <span class="sub-badge" style="background:#fffbeb;color:#d97706;border-color:#fde68a;">End of Life</span>
+        {% endif %}
+      </div>
+      <span class="finding-ref">§{{ f.id }}</span>
+    </div>
+
+    <div class="finding-title">
+      {% if f.obs.component %}{{ f.obs.component }}{% endif %}
+      {% if f.obs.title %} — {{ f.obs.title }}{% endif %}
+      {% if not f.obs.component and not f.obs.title and f.obs.defect_type %}{{ f.obs.defect_type }}{% endif %}
+    </div>
+
+    <div class="finding-body">
+      {% if f.obs.professional_report_description %}
+      <div class="finding-desc">{{ f.obs.professional_report_description }}</div>
+      {% endif %}
+
+      {% if f.obs.recommended_action %}
+      <div class="finding-action">
+        <span class="finding-action-arrow">→</span>
+        <span>{{ f.obs.recommended_action }}</span>
+      </div>
+      {% endif %}
+
+      <div style="display:flex; gap:16pt; flex-wrap:wrap; margin-top:2pt;">
+        {% if f.obs.estimated_cost_range %}
+        <div class="finding-cost">💰 <strong>Est. cost:</strong> {{ f.cost_display }}</div>
+        {% endif %}
+        {% if f.obs.responsible_professional %}
+        <div class="finding-cost">🔧 <strong>Contact:</strong> {{ f.obs.responsible_professional }}</div>
+        {% endif %}
+        {% if f.obs.room_or_area %}
+        <div class="finding-location">📍 {{ f.obs.room_or_area }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if f.photo %}
+    <img class="finding-photo" src="{{ f.photo }}" alt="Finding photo §{{ f.id }}">
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+
+{# ================================================================
+   SYSTEMS APPROACHING END OF LIFE
+   ================================================================ #}
+{% if eol_findings %}
+<div class="new-page">
+  <div class="page-title-block">
+    <div class="page-eyebrow">Consolidated</div>
+    <div class="page-title">Systems Approaching End of Life</div>
+    <div class="page-subtitle">Functional now — budget for replacement</div>
+  </div>
+
+  <p class="intro-text">
+    The following components were operational at the time of inspection but are approaching
+    or have exceeded their typical service life. No immediate repair is required.
+    These items should be anticipated in your capital planning and maintenance budget.
+    Cost estimates reflect replacement, not repair.
+  </p>
+
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:7%;">§</th>
+        <th style="width:18%;">System</th>
+        <th style="width:20%;">Component</th>
+        <th style="width:30%;">Assessment</th>
+        <th>Recommended Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in eol_findings %}
+      <tr>
+        <td class="ref-mono">{{ f.id }}</td>
+        <td>{{ f.obs.system or "—" }}</td>
+        <td><strong>{{ f.obs.component or f.obs.title or "—" }}</strong></td>
+        <td>
+          <span class="eol-badge">End of Life</span>
+          {% if f.obs.eol_reasoning %}
+          <br><span style="font-size:8pt;color:#64748b;line-height:1.5;">{{ f.obs.eol_reasoning }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:8.5pt;color:#475569;">{{ f.obs.recommended_action or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+
+{# ================================================================
+   NOT INSPECTED
+   ================================================================ #}
+{% if not_inspected %}
+<div class="new-page">
+  <div class="page-title-block">
+    <div class="page-eyebrow">Limitations</div>
+    <div class="page-title">Not Inspected</div>
+    <div class="page-subtitle">Items excluded from this inspection with documented reasons</div>
+  </div>
+
+  <p class="intro-text">
+    The items below were not inspected during this evaluation. Reasons are documented.
+    Not-inspected items are not covered by this report and should be separately evaluated
+    by a qualified specialist where access or conditions permit.
+  </p>
+
+  <table class="ni-table">
+    <thead>
+      <tr>
+        <th style="width:18%;">System</th>
+        <th style="width:22%;">Component / Location</th>
+        <th style="width:20%;">Reason</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in not_inspected %}
+      <tr>
+        <td>{{ item.system or "—" }}</td>
+        <td>{{ item.component or item.room_or_area or "—" }}</td>
+        <td>
+          {% if item.reason %}
+          <span class="reason-badge">{{ item.reason | replace("_", " ") | title }}</span>
+          {% else %}—
+          {% endif %}
+        </td>
+        <td style="font-size:8.5pt;color:#475569;line-height:1.5;">{{ item.description or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+
+{# ================================================================
+   PRIORITY ACTION ITEMS
+   ================================================================ #}
+{% if priority_actions %}
+<div class="new-page">
+  <div class="page-title-block">
+    <div class="page-eyebrow">Summary Table</div>
+    <div class="page-title">Priority Action Items</div>
+    <div class="page-subtitle">All Safety Hazards and Deficiencies — reference this table for contractor discussions and repair negotiations</div>
+  </div>
+
+  <table class="priority-table">
+    <thead>
+      <tr>
+        <th style="width:6%;">§</th>
+        <th style="width:14%;">System</th>
+        <th style="width:26%;">Finding</th>
+        <th style="width:18%;">Category</th>
+        <th style="width:16%;">Est. Cost</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in priority_actions %}
+      {% set sev = f.obs.severity or "" %}
+      <tr>
+        <td class="ref-mono">{{ f.id }}</td>
+        <td style="font-size:8.5pt;">{{ f.obs.system or "—" }}</td>
+        <td>
+          <strong style="font-size:8.5pt;">
+            {{ f.obs.component or "" }}{% if f.obs.title %} — {{ f.obs.title }}{% endif %}
+          </strong>
+          {% if f.obs.room_or_area %}
+          <br><span style="font-size:7.5pt;color:#94a3b8;">{{ f.obs.room_or_area }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <span class="sev-badge" style="
+            {% if sev == 'Safety Hazard' %}background:#fef2f2;color:#dc2626;border-color:#fecaca;
+            {% elif sev == 'Deficiency' %}background:#fffbeb;color:#d97706;border-color:#fde68a;
+            {% else %}background:#eff6ff;color:#2563eb;border-color:#bfdbfe;{% endif %}
+          ">{{ sev }}</span>
+          {% if f.obs.sub_category %}
+          <br><span class="sub-badge" style="margin-top:3pt;display:inline-block;">{{ f.obs.sub_category }}</span>
+          {% endif %}
+        </td>
+        <td style="font-size:8.5pt;color:#475569;">{{ f.cost_display or "—" }}</td>
+        <td style="font-size:8pt;color:#475569;line-height:1.5;">{{ f.obs.recommended_action or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+
+{# ================================================================
+   DISCLOSURES
+   ================================================================ #}
+<div class="new-page">
+  <div class="page-title-block">
+    <div class="page-eyebrow">Legal</div>
+    <div class="page-title">Disclosures &amp; Limitations</div>
+    {% if inspector.standards_complied_with %}
+    <div class="page-subtitle">Prepared in accordance with {{ inspector.standards_complied_with }}</div>
+    {% endif %}
+  </div>
+
+  {% for d in disclaimers %}
+  <div class="disclosure-item">
+    <div class="disclosure-title">{{ loop.index }}. {{ d.title }}</div>
+    <div class="disclosure-body">{{ d.body }}</div>
+  </div>
+  {% if not loop.last %}<hr class="divider">{% endif %}
+  {% endfor %}
+
+  <hr class="divider" style="margin-top:20pt;">
+
+  <div style="text-align:center; padding-top:6pt;">
+    <div style="font-size:8.5pt; color:#94a3b8; line-height:2;">
+      Report prepared by
+      <strong style="color:#64748b;">{{ inspector.name or "Inspector" }}</strong>
+      {% if inspector.license_number %}&nbsp;·&nbsp; License #{{ inspector.license_number }}{% endif %}
+      <br>
+      {{ inspection_dt_fmt }}
+      {% if inspector.standards_complied_with %}&nbsp;·&nbsp; {{ inspector.standards_complied_with }}{% endif %}
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
