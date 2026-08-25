@@ -1234,7 +1234,6 @@ function ObsCard({ obs, obsNumber, totalCount, failedPhotos, onFailPhoto, onClic
           {obs.system && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{obs.system}</span>}
           {obs.severity && <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${severityColors[obs.severity] ?? 'bg-slate-100 text-slate-500'}`}>{obs.severity}</span>}
           {obs.sub_category && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{obs.sub_category}</span>}
-          {obs.safety_related && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full">⚠ Safety</span>}
           {obs.status && <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[obs.status] ?? 'bg-slate-100 text-slate-500'}`}>{obs.status}</span>}
         </div>
       </div>

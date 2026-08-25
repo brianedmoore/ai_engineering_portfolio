@@ -458,7 +458,6 @@ export default function ReviewPage() {
             {obs.system && <Chip>{obs.system}</Chip>}
             {obs.severity && <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${severityColor}`}>{obs.severity}</span>}
             {obs.sub_category && <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-100 text-slate-500">{obs.sub_category}</span>}
-            {obs.safety_related && <span className="bg-red-500 text-white text-sm font-bold px-3 py-1.5 rounded-full">⚠ Safety Issue</span>}
           </div>
         </div>
 
