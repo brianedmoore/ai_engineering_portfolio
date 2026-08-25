@@ -5,3 +5,5 @@ __pycache__/
 *.jpeg
 .vscode/
 observations.db
+sample_inspection_*.pdf
+sample_inspection_*.PDF

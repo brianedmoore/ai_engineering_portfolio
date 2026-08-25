@@ -34,6 +34,21 @@ def on_startup():
     create_db_and_tables()
 
 
+def _inspector_out(inspector: Inspector) -> dict:
+    return {
+        "id": inspector.id,
+        "email": inspector.email,
+        "name": inspector.name,
+        "company_name": inspector.company_name,
+        "company_address": inspector.company_address,
+        "company_phone": inspector.company_phone,
+        "license_number": inspector.license_number,
+        "website": inspector.website,
+        "has_headshot": inspector.headshot_data is not None,
+        "has_logo": inspector.logo_data is not None,
+    }
+
+
 @app.post("/observations", response_model=StructuredObservation)
 def create_observation(
     observation_id: str,
@@ -465,7 +480,7 @@ def login(payload: LoginRequest, session: Session = Depends(get_session)):
 
 @app.get("/auth/me", response_model=InspectorOut)
 def get_me(inspector: Inspector = Depends(get_current_inspector)):
-    return inspector
+    return _inspector_out(inspector)
     
 @app.post("/inspections", response_model=InspectionOut, status_code=201)
 def create_inspection(
@@ -558,7 +573,7 @@ def register(payload: RegisterRequest, session: Session = Depends(get_session)):
     session.add(inspector)
     session.commit()
     session.refresh(inspector)
-    return inspector
+    return _inspector_out(inspector)
 
 
 @app.patch("/observations/{observation_id}", response_model=StructuredObservation)
@@ -591,7 +606,45 @@ def update_inspector(
     session.add(inspector)
     session.commit()
     session.refresh(inspector)
-    return inspector
+    return _inspector_out(inspector)
+
+
+@app.post("/inspectors/me/headshot", status_code=204)
+def upload_headshot(
+    file: UploadFile = File(...),
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspector.headshot_data = file.file.read()
+    inspector.headshot_content_type = file.content_type or "image/jpeg"
+    session.add(inspector)
+    session.commit()
+
+
+@app.get("/inspectors/me/headshot")
+def get_headshot(inspector: Inspector = Depends(get_current_inspector)):
+    if not inspector.headshot_data:
+        raise HTTPException(status_code=404, detail="No headshot uploaded")
+    return Response(content=inspector.headshot_data, media_type=inspector.headshot_content_type or "image/jpeg")
+
+
+@app.post("/inspectors/me/logo", status_code=204)
+def upload_logo(
+    file: UploadFile = File(...),
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspector.logo_data = file.file.read()
+    inspector.logo_content_type = file.content_type or "image/png"
+    session.add(inspector)
+    session.commit()
+
+
+@app.get("/inspectors/me/logo")
+def get_logo(inspector: Inspector = Depends(get_current_inspector)):
+    if not inspector.logo_data:
+        raise HTTPException(status_code=404, detail="No logo uploaded")
+    return Response(content=inspector.logo_data, media_type=inspector.logo_content_type or "image/png")
 
 
 @app.delete("/observations/{observation_id}", status_code=204)

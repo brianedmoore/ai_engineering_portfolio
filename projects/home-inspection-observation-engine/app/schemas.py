@@ -308,6 +308,11 @@ class Inspector(SQLModel, table=True):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
+    website: Optional[str] = None
+    headshot_data: Optional[bytes] = None
+    headshot_content_type: Optional[str] = None
+    logo_data: Optional[bytes] = None
+    logo_content_type: Optional[str] = None
     created_at: Optional[datetime] = None
 
 
@@ -335,6 +340,9 @@ class InspectorOut(BaseModel):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
+    website: Optional[str] = None
+    has_headshot: bool = False
+    has_logo: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -432,6 +440,7 @@ class InspectorPatch(BaseModel):
     company_address: Optional[str] = None
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
+    website: Optional[str] = None
 
 
 class InspectionProfilePatch(BaseModel):
