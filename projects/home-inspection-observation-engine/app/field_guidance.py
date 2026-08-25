@@ -125,19 +125,40 @@ FIELD_GUIDANCE = {
         "note": ""
     },
     "severity": {
-        "description": "How serious the defect is.",
-        "values": ["Low", "Medium", "High"],
+        "description": "The primary severity tier of the finding.",
+        "values": ["Safety Hazard", "Deficiency", "Advisory"],
         "criteria": [
-            "Low: cosmetic or minor, no immediate risk (e.g. peeling paint, worn threshold, hairline crack in drywall)",
-            "Medium: functional issue that should be addressed, no immediate danger (e.g. damaged trim, slow drain, missing caulk at window)",
-            "High: immediate safety risk or active damage in progress (e.g. active water leak, exposed wiring, structural failure, mold)"
+            "Safety Hazard: risk of injury or harm to occupants (e.g. exposed wiring, active gas leak, structural failure, missing GFCI near water)",
+            "Deficiency: functional failure, significant cost, or needs specialist evaluation (e.g. failed HVAC, aging roof, water intrusion, inoperable system)",
+            "Advisory: maintenance items, monitoring needs, or informational context (e.g. worn caulk, minor grading, cosmetic damage, routine upkeep)"
         ],
         "examples": [],
         "negative_examples": [
-            "Medium for a missing outlet cover plate with exposed wiring — exposed wiring is a direct safety risk and must be High",
-            "High for peeling paint or a worn door threshold — cosmetic issues with no safety or water risk are Low"
+            "Advisory for exposed wiring — direct safety risk is Safety Hazard",
+            "Safety Hazard for peeling paint — cosmetic issue with no safety risk is Advisory",
+            "Advisory for a failed water heater — functional failure with replacement cost is Deficiency"
         ],
-        "note": "When uncertain between Medium and High, use High if there is active damage or a direct safety risk to occupants."
+        "note": "When uncertain between Deficiency and Safety Hazard, use Safety Hazard if there is any direct risk of injury to occupants."
+    },
+    "sub_category": {
+        "description": "The specific sub-category within the severity tier. Must be consistent with severity. Pick exactly one.",
+        "values": [
+            "Immediate Safety", "Safety Upgrade",
+            "Major Repair", "Repair / Replace", "Evaluate", "End of Life",
+            "Maintenance", "Monitor", "Informational"
+        ],
+        "criteria": [
+            "Safety Hazard → Immediate Safety: active hazard requiring correction before occupancy (e.g. exposed live wiring, active gas leak, unstable structure)",
+            "Safety Hazard → Safety Upgrade: condition legal at build time but now code-recognized hazard (e.g. no GFCI at wet locations in older home, no safety glazing)",
+            "Deficiency → Major Repair: significant cost or scope, licensed specialist required (e.g. roof replacement, foundation crack repair, panel replacement)",
+            "Deficiency → Repair / Replace: functional failure addressable by general contractor (e.g. failed sump pump, leaking pipe, broken window seal)",
+            "Deficiency → Evaluate: inspector cannot fully assess, specialist evaluation needed (e.g. concealed moisture, inaccessible crawlspace, unknown system age)",
+            "Deficiency → End of Life: functional but aging; budget for imminent replacement (e.g. 22-year-old furnace, original roof at 28 years)",
+            "Advisory → Maintenance: routine upkeep overdue or due soon (e.g. caulking, dryer vent cleaning, filter replacement)",
+            "Advisory → Monitor: watch for changes, no action required now (e.g. hairline crack stable for years, minor efflorescence)",
+            "Advisory → Informational: no action needed, context for buyer (e.g. noting a past repair, describing a material choice)"
+        ],
+        "note": "Sub-category must match the severity tier. Never use a Safety Hazard sub-category under Advisory, etc."
     },
     "safety_related": {
         "description": "Whether the defect poses a direct safety risk to occupants.",

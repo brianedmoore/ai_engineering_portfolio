@@ -13,6 +13,7 @@ type Observation = {
   component: string | null
   defect_type: string | null
   severity: string | null
+  sub_category: string | null
   safety_related: boolean | null
   professional_report_description: string | null
   plain_english_summary: string | null
@@ -28,12 +29,17 @@ type Observation = {
 }
 
 const severityColors: Record<string, string> = {
-  Low: 'bg-green-100 text-green-700',
-  Medium: 'bg-amber-100 text-amber-700',
-  High: 'bg-red-100 text-red-700',
+  'Advisory': 'bg-blue-100 text-blue-700',
+  'Deficiency': 'bg-amber-100 text-amber-700',
+  'Safety Hazard': 'bg-red-100 text-red-700',
 }
 
-const SEVERITY_OPTIONS = ['Low', 'Medium', 'High']
+const SEVERITY_OPTIONS = ['Advisory', 'Deficiency', 'Safety Hazard']
+const SUB_CATEGORY_OPTIONS: Record<string, string[]> = {
+  'Safety Hazard': ['Immediate Safety', 'Safety Upgrade'],
+  'Deficiency': ['Major Repair', 'Repair / Replace', 'Evaluate', 'End of Life'],
+  'Advisory': ['Maintenance', 'Monitor', 'Informational'],
+}
 const SYSTEM_OPTIONS = ['Roofing', 'Exterior', 'Structure', 'Electrical', 'Plumbing', 'HVAC', 'Interior', 'Insulation and Ventilation', 'Appliances', 'Site and Grounds', 'Garage', 'Other']
 const RESPONSIBLE_OPTIONS = ['Homeowner/DIY', 'Handyman', 'Plumber', 'Electrician', 'HVAC Technician', 'Roofer', 'Structural Engineer', 'Foundation Contractor', 'General Contractor', 'Appliance Technician', 'Pest Control Professional', 'Mold/Water Mitigation Professional', 'Qualified Specialist', 'Further Evaluation Recommended']
 const COST_OPTIONS = ['$0-$100', '$100-$300', '$300-$750', '$750-$2,500', '$2,500+', 'Unknown']
@@ -450,7 +456,8 @@ export default function ReviewPage() {
           <div className="flex flex-wrap gap-2">
             {obs.room_or_area && <Chip>{obs.room_or_area}</Chip>}
             {obs.system && <Chip>{obs.system}</Chip>}
-            {obs.severity && <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${severityColor}`}>{obs.severity} Severity</span>}
+            {obs.severity && <span className={`text-sm font-bold px-3 py-1.5 rounded-full ${severityColor}`}>{obs.severity}</span>}
+            {obs.sub_category && <span className="text-xs font-medium px-3 py-1.5 rounded-full bg-slate-100 text-slate-500">{obs.sub_category}</span>}
             {obs.safety_related && <span className="bg-red-500 text-white text-sm font-bold px-3 py-1.5 rounded-full">⚠ Safety Issue</span>}
           </div>
         </div>
@@ -479,6 +486,7 @@ export default function ReviewPage() {
               <EditableRow label="Component"                value={obs.component}                fieldKey="component"                {...ep} />
               <EditableRow label="Defect Type"              value={obs.defect_type}              fieldKey="defect_type"              {...ep} />
               <EditableRow label="Severity"                 value={obs.severity}                 fieldKey="severity"      type="select" options={SEVERITY_OPTIONS}     {...ep} />
+              <EditableRow label="Sub-Category"             value={obs.sub_category}             fieldKey="sub_category"  type="select" options={obs.severity ? (SUB_CATEGORY_OPTIONS[obs.severity] ?? []) : []} {...ep} />
               <EditableRow label="Safety Issue"             value={obs.safety_related === null ? null : obs.safety_related ? 'Yes' : 'No'} fieldKey="safety_related" type="select" options={BOOL_OPTIONS} {...ep} />
               <EditableRow label="Recommended Action"       value={obs.recommended_action}       fieldKey="recommended_action"       multiline {...ep} />
               <EditableRow label="Responsible Professional" value={obs.responsible_professional} fieldKey="responsible_professional" type="select" options={RESPONSIBLE_OPTIONS} {...ep} />

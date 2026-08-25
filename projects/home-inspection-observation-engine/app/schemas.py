@@ -51,9 +51,24 @@ class NotInspectedReason(str, Enum):
 
     
 class Severity(str, Enum):
-    LOW = "Low"
-    MEDIUM = "Medium"
-    HIGH = "High"
+    ADVISORY = "Advisory"
+    DEFICIENCY = "Deficiency"
+    SAFETY_HAZARD = "Safety Hazard"
+
+
+class SubCategory(str, Enum):
+    # Safety Hazard
+    IMMEDIATE_SAFETY = "Immediate Safety"
+    SAFETY_UPGRADE = "Safety Upgrade"
+    # Deficiency
+    MAJOR_REPAIR = "Major Repair"
+    REPAIR_REPLACE = "Repair / Replace"
+    EVALUATE = "Evaluate"
+    END_OF_LIFE = "End of Life"
+    # Advisory
+    MAINTENANCE = "Maintenance"
+    MONITOR = "Monitor"
+    INFORMATIONAL = "Informational"
 
 
 class SourceInputType(str, Enum):
@@ -220,6 +235,7 @@ class LLMObservationOutput(BaseModel):
     component: str
     defect_type: str
     severity: Severity
+    sub_category: SubCategory
     safety_related: bool
     professional_report_description: str
     plain_english_summary: str
@@ -255,6 +271,7 @@ class StructuredObservation(SQLModel, table=True):
     component: Optional[str] = None
     defect_type: Optional[str] = None
     severity: Optional[Severity] = None
+    sub_category: Optional[SubCategory] = None
     safety_related: Optional[bool] = None
     professional_report_description: Optional[str] = None
     plain_english_summary: Optional[str] = None
@@ -288,6 +305,7 @@ class ObservationPatch(SQLModel):
     component: Optional[str] = None
     defect_type: Optional[str] = None
     severity: Optional[Severity] = None
+    sub_category: Optional[SubCategory] = None
     safety_related: Optional[bool] = None
     professional_report_description: Optional[str] = None
     plain_english_summary: Optional[str] = None

@@ -64,6 +64,7 @@ type ObsSummary = {
   room_or_area: string | null
   system: string | null
   severity: string | null
+  sub_category: string | null
   safety_related: boolean | null
   status: string | null
   photo_ids: number[] | null
@@ -1183,9 +1184,9 @@ function ObsCard({ obs, obsNumber, totalCount, failedPhotos, onFailPhoto, onClic
 }) {
   const API = import.meta.env.VITE_API_URL
   const severityColors: Record<string, string> = {
-    Low: 'bg-green-100 text-green-700',
-    Medium: 'bg-amber-100 text-amber-700',
-    High: 'bg-red-100 text-red-700',
+    'Advisory': 'bg-blue-100 text-blue-700',
+    'Deficiency': 'bg-amber-100 text-amber-700',
+    'Safety Hazard': 'bg-red-100 text-red-700',
   }
   const statusColors: Record<string, string> = {
     'Approved': 'bg-green-100 text-green-700',
@@ -1232,6 +1233,7 @@ function ObsCard({ obs, obsNumber, totalCount, failedPhotos, onFailPhoto, onClic
           {obs.room_or_area && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{obs.room_or_area}</span>}
           {obs.system && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{obs.system}</span>}
           {obs.severity && <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${severityColors[obs.severity] ?? 'bg-slate-100 text-slate-500'}`}>{obs.severity}</span>}
+          {obs.sub_category && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">{obs.sub_category}</span>}
           {obs.safety_related && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full">⚠ Safety</span>}
           {obs.status && <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${statusColors[obs.status] ?? 'bg-slate-100 text-slate-500'}`}>{obs.status}</span>}
         </div>

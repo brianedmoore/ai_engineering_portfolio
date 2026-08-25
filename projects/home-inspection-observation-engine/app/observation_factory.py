@@ -4,7 +4,7 @@ from typing import Optional
 from sqlmodel import Session
 from app.schemas import (
     ObservationInput, StructuredObservation, ObservationStatus,
-    LLMObservationOutput, Inspection
+    LLMObservationOutput, Inspection, SubCategory, Severity
 )
 from app.workflow_status import determine_observation_status
 from app.llm_client import get_client, get_llm_provider
@@ -79,6 +79,11 @@ def create_basic_structured_observation(
         result.eol_detected_age_years,
     )
 
+    # Resolve sub_category: use LLM output; if EOL engine fires on a Deficiency, override to End of Life
+    sub_category = result.sub_category
+    if eol_flag and result.severity == Severity.DEFICIENCY:
+        sub_category = SubCategory.END_OF_LIFE
+
     # Apply system profile updates to the Inspection row when we have a session
     if session and inspection_id and result.system_profile_updates:
         _apply_system_profile_updates(session, inspection_id, result.system_profile_updates)
@@ -92,6 +97,7 @@ def create_basic_structured_observation(
         component=result.component,
         defect_type=result.defect_type,
         severity=result.severity,
+        sub_category=sub_category,
         safety_related=result.safety_related,
         professional_report_description=result.professional_report_description,
         plain_english_summary=result.plain_english_summary,
