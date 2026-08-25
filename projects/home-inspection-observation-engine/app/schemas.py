@@ -358,7 +358,6 @@ class Inspection(SQLModel, table=True):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
     front_of_house_photo_data: Optional[bytes] = None
     front_of_house_photo_content_type: Optional[str] = None
     # System descriptors — flat columns, one per field in system_descriptors.SYSTEM_DESCRIPTORS.
@@ -401,11 +400,14 @@ class InspectionCreate(BaseModel):
     property_type: Optional[str] = None
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
-    started_at: Optional[datetime] = None
 
 
 class InspectionDetailsPatch(BaseModel):
-    started_at: Optional[datetime] = None
+    address: Optional[str] = None
+    client_name: Optional[str] = None
+    property_type: Optional[str] = None
+    inspection_date: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 class InspectionOut(BaseModel):
@@ -417,7 +419,6 @@ class InspectionOut(BaseModel):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
-    started_at: Optional[datetime] = None
     has_front_of_house_photo: bool = False
     # System descriptors
     roof_material: Optional[str] = None

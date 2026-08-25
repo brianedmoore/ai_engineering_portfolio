@@ -497,8 +497,8 @@ def create_inspection(
     ):
     now = datetime.now(timezone.utc)
     data = payload.model_dump()
-    if not data.get('started_at'):
-        data['started_at'] = now
+    if not data.get('inspection_date'):
+        data['inspection_date'] = now
     inspection = Inspection(
         **data,
         inspector_id=inspector.id,

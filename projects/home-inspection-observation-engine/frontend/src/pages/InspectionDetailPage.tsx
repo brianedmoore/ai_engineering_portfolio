@@ -12,8 +12,8 @@ type Inspection = {
   client_name: string | null
   property_type: string | null
   inspection_date: string | null
+  notes: string | null
   created_at: string | null
-  started_at: string | null
   has_front_of_house_photo: boolean
   // System descriptors
   roof_material: string | null
@@ -179,7 +179,11 @@ export default function InspectionDetailPage() {
   const frontOfHouseInputRef = useRef<HTMLInputElement>(null)
 
   const [detailsEditMode, setDetailsEditMode] = useState(false)
-  const [startedAtDraft, setStartedAtDraft] = useState('')
+  const [addressDraft, setAddressDraft] = useState('')
+  const [clientNameDraft, setClientNameDraft] = useState('')
+  const [propertyTypeDraft, setPropertyTypeDraft] = useState('')
+  const [inspectionDateDraft, setInspectionDateDraft] = useState('')
+  const [notesDraft, setNotesDraft] = useState('')
   const [detailsSaving, setDetailsSaving] = useState(false)
 
   function loadObservations(): Promise<ObsSummary[]> {
@@ -334,7 +338,11 @@ export default function InspectionDetailPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          started_at: startedAtDraft ? new Date(startedAtDraft).toISOString() : null,
+          address: addressDraft || null,
+          client_name: clientNameDraft || null,
+          property_type: propertyTypeDraft || null,
+          inspection_date: inspectionDateDraft ? new Date(inspectionDateDraft).toISOString() : null,
+          notes: notesDraft || null,
         }),
       })
       if (res.ok) {
@@ -346,19 +354,26 @@ export default function InspectionDetailPage() {
     }
   }
 
+  // SQLite returns datetimes without a timezone suffix — JS treats those as local
+  // time rather than UTC. Appending Z forces correct UTC interpretation.
+  function parseServerDate(dateStr: string): Date {
+    const s = dateStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(dateStr) ? dateStr : dateStr + 'Z'
+    return new Date(s)
+  }
+
   function formatDate(dateStr: string | null) {
     if (!dateStr) return null
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    return parseServerDate(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
   function formatDateTime(dateStr: string | null) {
     if (!dateStr) return null
-    return new Date(dateStr).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+    return parseServerDate(dateStr).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
 
   function toDateTimeLocal(dateStr: string | null) {
     if (!dateStr) return ''
-    const d = new Date(dateStr)
+    const d = parseServerDate(dateStr)
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
@@ -477,8 +492,8 @@ export default function InspectionDetailPage() {
                 {inspection.property_type && (
                   <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{inspection.property_type}</span>
                 )}
-                {inspection.started_at && (
-                  <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Started {formatDateTime(inspection.started_at)}</span>
+                {inspection.inspection_date && (
+                  <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Started {formatDateTime(inspection.inspection_date)}</span>
                 )}
               </div>
               {observations.length > 0 && (
@@ -491,12 +506,51 @@ export default function InspectionDetailPage() {
               {detailsEditMode ? (
                 <div className="mt-3 bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Started at</label>
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Address</label>
+                    <input
+                      type="text"
+                      value={addressDraft}
+                      onChange={e => setAddressDraft(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Client name</label>
+                    <input
+                      type="text"
+                      value={clientNameDraft}
+                      onChange={e => setClientNameDraft(e.target.value)}
+                      placeholder="Optional"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Property type</label>
+                    <input
+                      type="text"
+                      value={propertyTypeDraft}
+                      onChange={e => setPropertyTypeDraft(e.target.value)}
+                      placeholder="e.g. Single Family, Condo"
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Inspection date</label>
                     <input
                       type="datetime-local"
-                      value={startedAtDraft}
-                      onChange={e => setStartedAtDraft(e.target.value)}
+                      value={inspectionDateDraft}
+                      onChange={e => setInspectionDateDraft(e.target.value)}
                       className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Notes</label>
+                    <textarea
+                      value={notesDraft}
+                      onChange={e => setNotesDraft(e.target.value)}
+                      placeholder="Optional"
+                      rows={3}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:border-blue-500 resize-none"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -518,12 +572,19 @@ export default function InspectionDetailPage() {
               ) : (
                 <button
                   onClick={() => {
-                    setStartedAtDraft(toDateTimeLocal(inspection.started_at))
+                    setAddressDraft(inspection.address)
+                    setClientNameDraft(inspection.client_name ?? '')
+                    setPropertyTypeDraft(inspection.property_type ?? '')
+                    setInspectionDateDraft(toDateTimeLocal(inspection.inspection_date))
+                    setNotesDraft(inspection.notes ?? '')
                     setDetailsEditMode(true)
                   }}
-                  className="text-xs text-slate-400 hover:text-blue-500 mt-2 transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-400 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-full transition-colors mt-3"
                 >
-                  Edit inspection details
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                  </svg>
+                  Edit details
                 </button>
               )}
             </div>
