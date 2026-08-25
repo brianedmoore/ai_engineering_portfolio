@@ -5,6 +5,7 @@ import Header from '../components/Header'
 
 type Observation = {
   observation_id: string
+  inspection_id: number | null
   status: string
   title: string | null
   room_or_area: string | null
@@ -44,11 +45,12 @@ export default function ReviewPage() {
   const location = useLocation()
   const locationState = location.state as { from?: string; inspectionId?: string } | null
   const fromList = locationState?.from === 'list'
-  const fromInspection = locationState?.from === 'inspection'
   const inspectionId = locationState?.inspectionId
-  const backPath = fromList ? '/list' : fromInspection && inspectionId ? `/inspections/${inspectionId}` : '/'
-  const backLabel = fromList ? '← Back to list' : fromInspection ? '← Back to inspection' : '← New observation'
   const [obs, setObs] = useState<Observation | null>(null)
+  // Derive inspectionId from the observation itself when no location state was set (e.g. Generate Now flow)
+  const effectiveInspectionId = inspectionId ?? obs?.inspection_id?.toString() ?? null
+  const backPath = fromList ? '/list' : effectiveInspectionId ? `/inspections/${effectiveInspectionId}` : '/'
+  const backLabel = fromList ? '← Back to list' : effectiveInspectionId ? '← Back to inspection' : '← Back'
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
@@ -98,16 +100,19 @@ export default function ReviewPage() {
         setObs(data)
         setLoading(false)
       })
-    if (inspectionId) {
-      fetch(`${API_URL}/observations?inspection_id=${inspectionId}`)
-        .then(r => r.json())
-        .then((list: Array<{ observation_id: string; status: string }>) => {
-          const next = list.find(o => o.status === 'Ready for Review' && o.observation_id !== id)
-          setNextObsId(next?.observation_id ?? null)
-        })
-        .catch(() => {})
-    }
-  }, [id, inspectionId])
+  }, [id])
+
+  // Separate effect: fetch siblings once we know effectiveInspectionId (may come from obs after it loads)
+  useEffect(() => {
+    if (!effectiveInspectionId) return
+    fetch(`${API_URL}/observations?inspection_id=${effectiveInspectionId}`)
+      .then(r => r.json())
+      .then((list: Array<{ observation_id: string; status: string }>) => {
+        const next = list.find(o => o.status === 'Ready for Review' && o.observation_id !== id)
+        setNextObsId(next?.observation_id ?? null)
+      })
+      .catch(() => {})
+  }, [id, effectiveInspectionId])
 
   useEffect(() => {
     setLocalMissingInfo(obs?.missing_information ?? [])
@@ -516,15 +521,6 @@ export default function ReviewPage() {
                   ? 'Approve & Review Next'
                   : 'Approve'}
           </button>
-          {nextObsId && !isAlreadyApproved && (
-            <button
-              onClick={() => handleApprove(false)}
-              disabled={isApproving}
-              className="text-center text-sm text-slate-400 py-1 disabled:opacity-40"
-            >
-              Approve & go back to inspection
-            </button>
-          )}
           {showRejectForm ? (
             <div className="bg-slate-50 rounded-2xl border border-red-100 p-4 flex flex-col gap-3">
               <p className="text-sm font-semibold text-slate-800">Reason for rejection</p>

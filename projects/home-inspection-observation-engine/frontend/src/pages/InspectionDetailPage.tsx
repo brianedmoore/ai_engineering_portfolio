@@ -65,6 +65,8 @@ type QueueState = {
   total: number
   label: string
   done: boolean
+  itemDone: boolean
+  itemKey: number
   firstReadyId: string | null
 }
 
@@ -206,10 +208,14 @@ export default function InspectionDetailPage() {
     for (let i = 0; i < toProcess.length; i++) {
       const obs = toProcess[i]
       const label = obs.text_description ?? obs.audio_transcript ?? `Observation ${i + 1}`
-      setQueueProcessing({ current: i + 1, total: toProcess.length, label, done: false, firstReadyId: null })
+      setQueueProcessing({ current: i + 1, total: toProcess.length, label, done: false, itemDone: false, itemKey: i, firstReadyId: null })
       try {
         const res = await fetch(`${API}/observations/${obs.observation_id}/process`, { method: 'POST' })
-        if (res.ok) succeeded++
+        if (res.ok) {
+          succeeded++
+          setQueueProcessing(prev => prev ? { ...prev, itemDone: true } : prev)
+          await new Promise(r => setTimeout(r, 700))
+        }
       } catch { /* count as failed */ }
     }
 
@@ -224,6 +230,8 @@ export default function InspectionDetailPage() {
       total: toProcess.length,
       label: '',
       done: true,
+      itemDone: true,
+      itemKey: toProcess.length,
       firstReadyId: firstReady?.observation_id ?? null,
     })
 
@@ -261,6 +269,30 @@ export default function InspectionDetailPage() {
     } finally {
       setProfileSaving(false)
     }
+  }
+
+  async function confirmProfileField(fieldKey: string, value: unknown) {
+    if (!id) return
+    try {
+      const res = await fetch(`${API}/inspections/${id}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ [fieldKey]: value }),
+      })
+      if (res.ok) setInspection(await res.json())
+    } catch {}
+  }
+
+  async function declineProfileField(fieldKey: string) {
+    if (!id) return
+    try {
+      const res = await fetch(`${API}/inspections/${id}/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ [fieldKey]: null }),
+      })
+      if (res.ok) setInspection(await res.json())
+    } catch {}
   }
 
   function formatDate(dateStr: string | null) {
@@ -304,17 +336,13 @@ export default function InspectionDetailPage() {
               <p className="text-sm text-slate-400">Starting review...</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center gap-3">
-              <div className="w-7 h-7 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
-              <p className="text-2xl font-extrabold text-slate-900">
-                {queueProcessing.current} of {queueProcessing.total}
-              </p>
-              {queueProcessing.label && (
-                <p className="text-sm text-slate-400 text-center max-w-xs leading-relaxed line-clamp-2">
-                  {queueProcessing.label}
-                </p>
-              )}
-            </div>
+            <QueueItemSteps
+              key={queueProcessing.itemKey}
+              current={queueProcessing.current}
+              total={queueProcessing.total}
+              label={queueProcessing.label}
+              itemDone={queueProcessing.itemDone}
+            />
           )}
         </div>
       )}
@@ -375,21 +403,13 @@ export default function InspectionDetailPage() {
               </div>
             )}
 
-            {/* Action buttons */}
-            <div className="flex gap-3 mb-6">
-              <button
-                onClick={() => navigate(`/inspections/${id}/capture`)}
-                className="flex-1 py-4 rounded-2xl bg-blue-600 text-white font-bold text-base active:scale-[0.98] transition-transform shadow-md shadow-blue-100"
-              >
-                + Observation
-              </button>
-              <button
-                onClick={() => navigate(`/inspections/${id}/capture?type=not-inspected`)}
-                className="flex-1 py-4 rounded-2xl bg-slate-700 text-white font-bold text-base active:scale-[0.98] transition-transform shadow-md shadow-slate-200"
-              >
-                Not Inspected
-              </button>
-            </div>
+            {/* Action button */}
+            <button
+              onClick={() => navigate(`/inspections/${id}/capture`)}
+              className="w-full py-4 rounded-2xl bg-blue-600 text-white font-bold text-base mb-6 active:scale-[0.98] transition-transform shadow-md shadow-blue-100"
+            >
+              + Add Observation
+            </button>
 
             {/* Observations — three sections */}
             {observations.length === 0 ? (
@@ -640,10 +660,13 @@ export default function InspectionDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">House Profile</span>
                   {inspection && (() => {
-                    const filled = REQUIRED_FIELDS.filter(f => (inspection as any)[f.key] != null).length
+                    const confirmed = REQUIRED_FIELDS.filter(f =>
+                      (inspection as any)[f.key] != null &&
+                      inspection.system_profile_sources?.[f.key] === 'confirmed'
+                    ).length
                     return (
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${filled === REQUIRED_FIELDS.length ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-600'}`}>
-                        {filled}/{REQUIRED_FIELDS.length} required
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${confirmed === REQUIRED_FIELDS.length ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-600'}`}>
+                        {confirmed}/{REQUIRED_FIELDS.length} confirmed
                       </span>
                     )
                   })()}
@@ -658,7 +681,7 @@ export default function InspectionDetailPage() {
                 <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col gap-5">
                   {SYSTEM_PROFILE_CONFIG.map(({ label, fields }) => (
                     <div key={label}>
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">{label}</p>
+                      <p className="text-sm font-bold text-slate-700 mb-3 pt-1">{label}</p>
                       <div className="flex flex-col gap-2">
                         {fields.map((field) => {
                           const rawVal = (inspection as any)[field.key]
@@ -668,9 +691,15 @@ export default function InspectionDetailPage() {
                             : null
                           const draftVal = profileDraft[field.key]
 
+                          const isRequired = REQUIRED_FIELDS.some(f => f.key === field.key)
+                          const isMissing = isRequired && rawVal == null
+
                           return (
-                            <div key={field.key} className="flex items-center justify-between gap-3">
-                              <span className="text-sm text-slate-500 shrink-0">{field.label}</span>
+                            <div key={field.key} className={`flex items-center justify-between gap-3 px-2 py-1.5 rounded-lg -mx-2 ${isMissing ? 'bg-amber-50' : ''}`}>
+                              <span className="text-sm text-slate-500 shrink-0 flex items-center gap-1">
+                                {field.label}
+                                {isRequired && <span className={`w-1.5 h-1.5 rounded-full inline-block ${isMissing ? 'bg-amber-400' : 'bg-green-500'}`} />}
+                              </span>
                               <div className="flex items-center gap-2 flex-1 justify-end">
                                 {profileEditMode ? (
                                   field.type === 'enum' ? (
@@ -706,10 +735,23 @@ export default function InspectionDetailPage() {
                                     <span className={`text-sm font-medium ${displayVal ? 'text-slate-800' : 'text-slate-300'}`}>
                                       {displayVal ?? '—'}
                                     </span>
-                                    {source && (
-                                      <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${source === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-                                        {source === 'confirmed' ? 'confirmed' : 'auto'}
-                                      </span>
+                                    {rawVal != null && source === 'inferred' && (
+                                      <div className="flex items-center gap-1">
+                                        <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-amber-50 text-amber-700 border border-amber-200">auto</span>
+                                        <button
+                                          onClick={() => confirmProfileField(field.key, rawVal)}
+                                          title="Confirm this value"
+                                          className="text-xs w-6 h-6 flex items-center justify-center rounded-full bg-green-100 text-green-700 font-bold hover:bg-green-200 active:scale-95 transition-all"
+                                        >✓</button>
+                                        <button
+                                          onClick={() => declineProfileField(field.key)}
+                                          title="Clear this value"
+                                          className="text-xs w-6 h-6 flex items-center justify-center rounded-full bg-red-50 text-red-400 font-bold hover:bg-red-100 active:scale-95 transition-all"
+                                        >✗</button>
+                                      </div>
+                                    )}
+                                    {source === 'confirmed' && (
+                                      <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-green-100 text-green-700">confirmed</span>
                                     )}
                                   </>
                                 )}
@@ -754,17 +796,29 @@ export default function InspectionDetailPage() {
             {/* Generate Report */}
             {(() => {
               if (!inspection) return null
-              const missingFields = REQUIRED_FIELDS.filter(f => (inspection as any)[f.key] == null)
-              const canGenerate = missingFields.length === 0
+              const unconfirmedFields = REQUIRED_FIELDS.filter(f => {
+                const val = (inspection as any)[f.key]
+                const src = inspection.system_profile_sources?.[f.key]
+                return val == null || src !== 'confirmed'
+              })
+              const canGenerate = unconfirmedFields.length === 0
               return (
                 <div className="mt-6 mb-4">
                   {!canGenerate && (
                     <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-3">
-                      <p className="text-sm font-semibold text-amber-800 mb-1">Required before generating report:</p>
+                      <p className="text-sm font-semibold text-amber-800 mb-1">Confirm these in House Profile before generating report:</p>
                       <ul className="text-sm text-amber-700 list-disc list-inside">
-                        {missingFields.map(f => <li key={f.key}>{f.label}</li>)}
+                        {unconfirmedFields.map(f => {
+                          const val = (inspection as any)[f.key]
+                          return (
+                            <li key={f.key}>
+                              {f.label}
+                              {val != null && <span className="text-amber-500 ml-1">(auto-detected — tap ✓ to confirm)</span>}
+                            </li>
+                          )
+                        })}
                       </ul>
-                      <p className="text-xs text-amber-600 mt-1.5">Fill these in the House Profile section above.</p>
+                      <p className="text-xs text-amber-600 mt-1.5">Open House Profile above and confirm or fill each field.</p>
                     </div>
                   )}
                   <button
@@ -856,6 +910,68 @@ function ObsCard({ obs, obsNumber, totalCount, failedPhotos, onFailPhoto, onClic
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="9,18 15,12 9,6"/>
         </svg>
+      </div>
+    </div>
+  )
+}
+
+const QUEUE_STEP_DELAYS = [2000, 5000, 9000, 13000]
+const QUEUE_STEPS = ['Analyzing photo', 'Reading your notes', 'Examining observation', 'Classifying severity', 'Generating report']
+
+function QueueItemSteps({ current, total, label, itemDone }: {
+  current: number
+  total: number
+  label: string
+  itemDone: boolean
+}) {
+  const [completedCount, setCompletedCount] = useState(0)
+  const [dots, setDots] = useState('.')
+
+  useEffect(() => {
+    const timers = QUEUE_STEP_DELAYS.map((delay, i) =>
+      setTimeout(() => setCompletedCount(c => Math.max(c, i + 1)), delay)
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [])
+
+  useEffect(() => {
+    if (itemDone) setCompletedCount(QUEUE_STEPS.length)
+  }, [itemDone])
+
+  useEffect(() => {
+    const interval = setInterval(() => setDots(d => d.length >= 3 ? '.' : d + '.'), 450)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div className="w-full max-w-sm flex flex-col items-center gap-4">
+      <p className="text-2xl font-extrabold text-slate-900">{current} of {total}</p>
+      {label && (
+        <p className="text-sm text-slate-400 text-center max-w-xs leading-relaxed line-clamp-2 -mt-2">{label}</p>
+      )}
+      <div className="w-full flex flex-col gap-4 mt-1">
+        {QUEUE_STEPS.map((step, i) => {
+          const done = i < completedCount
+          const active = i === completedCount
+          return (
+            <div key={i} className={`flex items-center gap-4 transition-all duration-500 ${done || active ? 'opacity-100' : 'opacity-20'}`}>
+              <div className="w-7 h-7 flex items-center justify-center shrink-0">
+                {done ? (
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2C5F2E" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                ) : active ? (
+                  <div className="w-5 h-5 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full border-2 border-slate-200" />
+                )}
+              </div>
+              <span className={`text-base font-semibold transition-colors duration-300 ${done || active ? 'text-slate-800' : 'text-slate-300'}`}>
+                {active ? `${step}${dots}` : step}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

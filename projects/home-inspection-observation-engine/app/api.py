@@ -519,9 +519,12 @@ def patch_inspection_profile(
     if not inspection or inspection.inspector_id != inspector.id:
         raise HTTPException(status_code=404, detail="Inspection not found")
     sources = dict(inspection.system_profile_sources or {})
-    for field, value in patch.model_dump(exclude_none=True).items():
+    for field, value in patch.model_dump(exclude_unset=True).items():
         setattr(inspection, field, value)
-        sources[field] = "confirmed"
+        if value is not None:
+            sources[field] = "confirmed"
+        else:
+            sources.pop(field, None)  # declined — remove from sources
     inspection.system_profile_sources = sources
     session.add(inspection)
     session.commit()

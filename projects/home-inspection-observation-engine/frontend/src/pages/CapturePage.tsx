@@ -233,7 +233,7 @@ export default function CapturePage() {
       }
       const data = await res.json()
       setIsSubmitComplete(true)
-      setTimeout(() => navigate(`/review/${data.observation_id}`), 900)
+      setTimeout(() => navigate(`/review/${data.observation_id}`, { state: { from: 'inspection', inspectionId } }), 900)
     } catch (err) {
       console.error('Generate now failed:', err)
       setError('Could not reach the server. Check your connection and tap Submit to try again.')
@@ -284,14 +284,13 @@ export default function CapturePage() {
 
     const notInspectedId = crypto.randomUUID()
     const formData = new FormData()
-    formData.append('not_inspected_id', notInspectedId)
     if (inspectionId) formData.append('inspection_id', inspectionId)
     if (text.trim()) formData.append('text_description', text.trim())
     if (audioBlob) formData.append('audio_file', audioBlob, 'recording.webm')
     photoFiles.forEach(f => formData.append('photos', f))
 
     try {
-      const res = await fetch(`${API_URL}/observations/not-inspected`, {
+      const res = await fetch(`${API_URL}/observations/not-inspected?not_inspected_id=${notInspectedId}`, {
         method: 'POST',
         body: formData,
       })
