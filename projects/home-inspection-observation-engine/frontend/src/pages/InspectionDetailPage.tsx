@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Header from '../components/Header'
@@ -13,6 +13,8 @@ type Inspection = {
   property_type: string | null
   inspection_date: string | null
   created_at: string | null
+  started_at: string | null
+  has_front_of_house_photo: boolean
   // System descriptors
   roof_material: string | null
   roof_estimated_age_years: number | null
@@ -173,6 +175,13 @@ export default function InspectionDetailPage() {
   const [profileDraft, setProfileDraft] = useState<Record<string, string | number | boolean>>({})
   const [profileSaving, setProfileSaving] = useState(false)
 
+  const [frontOfHouseUrl, setFrontOfHouseUrl] = useState<string | null>(null)
+  const frontOfHouseInputRef = useRef<HTMLInputElement>(null)
+
+  const [detailsEditMode, setDetailsEditMode] = useState(false)
+  const [startedAtDraft, setStartedAtDraft] = useState('')
+  const [detailsSaving, setDetailsSaving] = useState(false)
+
   function loadObservations(): Promise<ObsSummary[]> {
     return fetch(`${API}/observations?inspection_id=${id}`).then(r => r.json())
   }
@@ -191,6 +200,14 @@ export default function InspectionDetailPage() {
         setObservations([...observationsData].reverse())
         setNotInspected(niData)
         setLoading(false)
+        if (inspectionData.has_front_of_house_photo) {
+          fetch(`${API}/inspections/${id}/front-of-house-photo`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then(r => r.blob())
+            .then(b => setFrontOfHouseUrl(URL.createObjectURL(b)))
+            .catch(() => {})
+        }
       })
       .catch(() => {
         setFetchError(true)
@@ -295,9 +312,55 @@ export default function InspectionDetailPage() {
     } catch {}
   }
 
+  async function handleFrontOfHouseChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+    const preview = URL.createObjectURL(file)
+    setFrontOfHouseUrl(preview)
+    const fd = new FormData()
+    fd.append('file', file)
+    await fetch(`${API}/inspections/${id}/front-of-house-photo`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+  }
+
+  async function handleSaveDetails() {
+    if (!id) return
+    setDetailsSaving(true)
+    try {
+      const res = await fetch(`${API}/inspections/${id}/details`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          started_at: startedAtDraft ? new Date(startedAtDraft).toISOString() : null,
+        }),
+      })
+      if (res.ok) {
+        setInspection(await res.json())
+        setDetailsEditMode(false)
+      }
+    } finally {
+      setDetailsSaving(false)
+    }
+  }
+
   function formatDate(dateStr: string | null) {
     if (!dateStr) return null
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
+  function formatDateTime(dateStr: string | null) {
+    if (!dateStr) return null
+    return new Date(dateStr).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+  }
+
+  function toDateTimeLocal(dateStr: string | null) {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
   }
 
   const rawObservations = observations.filter(o => o.status === 'Raw')
@@ -366,6 +429,44 @@ export default function InspectionDetailPage() {
           </div>
         ) : inspection ? (
           <>
+            {/* Front of house photo */}
+            <div className="mb-4">
+              <input
+                ref={frontOfHouseInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFrontOfHouseChange}
+              />
+              {frontOfHouseUrl ? (
+                <div
+                  className="relative rounded-3xl overflow-hidden cursor-pointer group"
+                  style={{ aspectRatio: '16/7' }}
+                  onClick={() => frontOfHouseInputRef.current?.click()}
+                >
+                  <img src={frontOfHouseUrl} className="w-full h-full object-cover" alt="Front of house" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity flex items-center justify-center">
+                    <span className="text-white font-semibold text-sm">Change photo</span>
+                  </div>
+                  <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-sm text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                    Cover photo
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => frontOfHouseInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-slate-200 rounded-3xl py-7 flex flex-col items-center gap-2 text-slate-400 hover:border-blue-300 hover:text-blue-400 active:scale-[0.99] transition-all"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                  <span className="text-sm font-semibold">Add front of house photo</span>
+                  <span className="text-xs">Used on the report cover page</span>
+                </button>
+              )}
+            </div>
+
             {/* Inspection header */}
             <div className="mb-6">
               <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">{inspection.address}</h1>
@@ -376,14 +477,54 @@ export default function InspectionDetailPage() {
                 {inspection.property_type && (
                   <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{inspection.property_type}</span>
                 )}
-                {inspection.created_at && (
-                  <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">{formatDate(inspection.created_at)}</span>
+                {inspection.started_at && (
+                  <span className="text-xs bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Started {formatDateTime(inspection.started_at)}</span>
                 )}
               </div>
               {observations.length > 0 && (
                 <p className="text-slate-400 text-sm mt-2">
                   {approvedCount} approved · {observations.length} total observation{observations.length !== 1 ? 's' : ''}
                 </p>
+              )}
+
+              {/* Inline details editor */}
+              {detailsEditMode ? (
+                <div className="mt-3 bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 block">Started at</label>
+                    <input
+                      type="datetime-local"
+                      value={startedAtDraft}
+                      onChange={e => setStartedAtDraft(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveDetails}
+                      disabled={detailsSaving}
+                      className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold disabled:opacity-50 active:scale-[0.98] transition-transform"
+                    >
+                      {detailsSaving ? 'Saving…' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => setDetailsEditMode(false)}
+                      className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-bold active:scale-[0.98] transition-transform"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setStartedAtDraft(toDateTimeLocal(inspection.started_at))
+                    setDetailsEditMode(true)
+                  }}
+                  className="text-xs text-slate-400 hover:text-blue-500 mt-2 transition-colors"
+                >
+                  Edit inspection details
+                </button>
               )}
             </div>
 

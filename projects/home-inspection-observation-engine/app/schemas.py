@@ -309,6 +309,7 @@ class Inspector(SQLModel, table=True):
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
     website: Optional[str] = None
+    standards_complied_with: Optional[str] = None
     headshot_data: Optional[bytes] = None
     headshot_content_type: Optional[str] = None
     logo_data: Optional[bytes] = None
@@ -341,6 +342,7 @@ class InspectorOut(BaseModel):
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
     website: Optional[str] = None
+    standards_complied_with: Optional[str] = None
     has_headshot: bool = False
     has_logo: bool = False
 
@@ -356,6 +358,9 @@ class Inspection(SQLModel, table=True):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    front_of_house_photo_data: Optional[bytes] = None
+    front_of_house_photo_content_type: Optional[str] = None
     # System descriptors — flat columns, one per field in system_descriptors.SYSTEM_DESCRIPTORS.
     # Add new fields in system_descriptors.py; then add the matching column here.
     # Roof
@@ -396,6 +401,11 @@ class InspectionCreate(BaseModel):
     property_type: Optional[str] = None
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
+    started_at: Optional[datetime] = None
+
+
+class InspectionDetailsPatch(BaseModel):
+    started_at: Optional[datetime] = None
 
 
 class InspectionOut(BaseModel):
@@ -407,6 +417,8 @@ class InspectionOut(BaseModel):
     inspection_date: Optional[datetime] = None
     notes: Optional[str] = None
     created_at: Optional[datetime] = None
+    started_at: Optional[datetime] = None
+    has_front_of_house_photo: bool = False
     # System descriptors
     roof_material: Optional[str] = None
     roof_estimated_age_years: Optional[float] = None
@@ -441,6 +453,7 @@ class InspectorPatch(BaseModel):
     company_phone: Optional[str] = None
     license_number: Optional[str] = None
     website: Optional[str] = None
+    standards_complied_with: Optional[str] = None
 
 
 class InspectionProfilePatch(BaseModel):

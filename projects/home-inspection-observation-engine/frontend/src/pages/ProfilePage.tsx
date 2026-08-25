@@ -35,6 +35,11 @@ const IconPencil = () => (
     <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
   </svg>
 )
+const IconShield = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
 
 export default function ProfilePage() {
   const { token, inspector, headshotUrl, setHeadshotUrl, login, logout } = useAuth()
@@ -49,6 +54,7 @@ export default function ProfilePage() {
   const [companyPhone, setCompanyPhone] = useState('')
   const [licenseNumber, setLicenseNumber] = useState('')
   const [website, setWebsite] = useState('')
+  const [standards, setStandards] = useState('')
   const [editHeadshotPreview, setEditHeadshotPreview] = useState<string | null>(null)
   const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null)
   const [headshotFile, setHeadshotFile] = useState<File | null>(null)
@@ -75,6 +81,7 @@ export default function ProfilePage() {
     setCompanyPhone(inspector?.company_phone ?? '')
     setLicenseNumber(inspector?.license_number ?? '')
     setWebsite(inspector?.website ?? '')
+    setStandards(inspector?.standards_complied_with ?? '')
     setEditHeadshotPreview(headshotUrl)
     setEditLogoPreview(logoUrl)
     setHeadshotFile(null)
@@ -119,6 +126,7 @@ export default function ProfilePage() {
           company_phone: companyPhone || null,
           license_number: licenseNumber || null,
           website: website || null,
+          standards_complied_with: standards || null,
         }),
       })
       if (!res.ok) { setError('Failed to save. Try again.'); return }
@@ -232,6 +240,20 @@ export default function ProfilePage() {
                 </div>
               ))}
 
+              <div>
+                <label className="text-slate-500 text-xs font-semibold uppercase tracking-wide mb-1.5 block">Inspection standard</label>
+                <select
+                  value={standards}
+                  onChange={e => setStandards(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 text-slate-900 border border-slate-200 focus:outline-none focus:border-blue-500 text-base"
+                >
+                  <option value="">None selected</option>
+                  <option value="ASHI Standards of Practice, October 2022">ASHI Standards of Practice, October 2022</option>
+                  <option value="InterNACHI Standards of Practice, January 2023">InterNACHI Standards of Practice, January 2023</option>
+                  <option value="ASHI and InterNACHI Standards of Practice">ASHI and InterNACHI Standards of Practice</option>
+                </select>
+              </div>
+
               {error && <p className="text-red-500 text-sm">{error}</p>}
 
               <div className="flex gap-3 mt-2">
@@ -316,6 +338,9 @@ export default function ProfilePage() {
                   )}
                   {inspector?.license_number && (
                     <InfoRow icon={<IconBadge />} value={`Lic. ${inspector.license_number}`} />
+                  )}
+                  {inspector?.standards_complied_with && (
+                    <InfoRow icon={<IconShield />} value={inspector.standards_complied_with} />
                   )}
                 </div>
               </div>

@@ -11,6 +11,7 @@ interface Inspector {
     company_phone: string | null
     license_number: string | null
     website: string | null
+    standards_complied_with: string | null
     has_headshot: boolean
     has_logo: boolean
 }

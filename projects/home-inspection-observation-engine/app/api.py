@@ -8,7 +8,7 @@ import time
 import tempfile
 import os
 from fastapi.middleware.cors import CORSMiddleware
-from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch, InspectionProfilePatch, NotInspectedObservation, NotInspectedPhoto
+from app.schemas import ObservationInput, StructuredObservation, ObservationStatus, Photo, Audio, RejectionReason, ObservationPatch, Inspector, RegisterRequest, LoginRequest, TokenResponse, InspectorOut, Inspection, InspectionCreate, InspectionOut, InspectorPatch, InspectionProfilePatch, InspectionDetailsPatch, NotInspectedObservation, NotInspectedPhoto
 from app.auth import hash_password, verify_password, create_access_token, get_current_inspector
 from app.observation_factory import create_basic_structured_observation
 from app.not_inspected_factory import classify_not_inspected
@@ -34,6 +34,12 @@ def on_startup():
     create_db_and_tables()
 
 
+def _inspection_out(inspection: Inspection) -> dict:
+    data = InspectionOut.model_validate(inspection).model_dump()
+    data['has_front_of_house_photo'] = inspection.front_of_house_photo_data is not None
+    return data
+
+
 def _inspector_out(inspector: Inspector) -> dict:
     return {
         "id": inspector.id,
@@ -44,6 +50,7 @@ def _inspector_out(inspector: Inspector) -> dict:
         "company_phone": inspector.company_phone,
         "license_number": inspector.license_number,
         "website": inspector.website,
+        "standards_complied_with": inspector.standards_complied_with,
         "has_headshot": inspector.headshot_data is not None,
         "has_logo": inspector.logo_data is not None,
     }
@@ -488,15 +495,19 @@ def create_inspection(
     inspector: Inspector = Depends(get_current_inspector),
     session: Session = Depends(get_session),
     ):
+    now = datetime.now(timezone.utc)
+    data = payload.model_dump()
+    if not data.get('started_at'):
+        data['started_at'] = now
     inspection = Inspection(
-        **payload.model_dump(),
+        **data,
         inspector_id=inspector.id,
-        created_at=datetime.now(timezone.utc),
+        created_at=now,
     )
     session.add(inspection)
     session.commit()
     session.refresh(inspection)
-    return inspection
+    return _inspection_out(inspection)
 
 
 @app.get("/inspections", response_model=List[InspectionOut])
@@ -507,7 +518,7 @@ def list_inspections(
     inspections = session.exec(
         select(Inspection).where(Inspection.inspector_id == inspector.id)
     ).all()
-    return inspections
+    return [_inspection_out(i) for i in inspections]
 
 
 @app.get("/inspections/{inspection_id}", response_model=InspectionOut)
@@ -519,7 +530,7 @@ def get_inspection(
     inspection = session.get(Inspection, inspection_id)
     if not inspection or inspection.inspector_id != inspector.id:
         raise HTTPException(status_code=404, detail="Inspection not found")
-    return inspection
+    return _inspection_out(inspection)
 
 
 @app.patch("/inspections/{inspection_id}/profile", response_model=InspectionOut)
@@ -544,7 +555,55 @@ def patch_inspection_profile(
     session.add(inspection)
     session.commit()
     session.refresh(inspection)
-    return inspection
+    return _inspection_out(inspection)
+
+
+@app.patch("/inspections/{inspection_id}/details", response_model=InspectionOut)
+def patch_inspection_details(
+    inspection_id: int,
+    patch: InspectionDetailsPatch,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    for field, value in patch.model_dump(exclude_unset=True).items():
+        setattr(inspection, field, value)
+    session.add(inspection)
+    session.commit()
+    session.refresh(inspection)
+    return _inspection_out(inspection)
+
+
+@app.post("/inspections/{inspection_id}/front-of-house-photo", status_code=204)
+def upload_front_of_house_photo(
+    inspection_id: int,
+    file: UploadFile = File(...),
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    inspection.front_of_house_photo_data = file.file.read()
+    inspection.front_of_house_photo_content_type = file.content_type or "image/jpeg"
+    session.add(inspection)
+    session.commit()
+
+
+@app.get("/inspections/{inspection_id}/front-of-house-photo")
+def get_front_of_house_photo(
+    inspection_id: int,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    if not inspection.front_of_house_photo_data:
+        raise HTTPException(status_code=404, detail="No front of house photo uploaded")
+    return Response(content=inspection.front_of_house_photo_data, media_type=inspection.front_of_house_photo_content_type or "image/jpeg")
 
 
 @app.delete("/inspections/{inspection_id}", status_code=204)
