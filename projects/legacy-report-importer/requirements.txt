@@ -1,0 +1,29 @@
+# LangChain / LangGraph — core OSS stack
+langchain>=0.3.0
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-openai>=0.2.0
+
+# LangSmith tracing (free tier: 5k traces/month)
+# Enable with: LANGCHAIN_TRACING_V2=true LANGCHAIN_API_KEY=your_key
+langsmith>=0.1.0
+
+# PDF parsing — pymupdf gives page-level image positions (required for location matching)
+pymupdf>=1.24.0
+
+# Env vars
+python-dotenv>=1.0.0
+
+# DB / schemas — same stack as sibling project
+sqlmodel>=0.0.21
+sqlalchemy>=2.0.0
+pydantic>=2.0.0
+
+# ── Optional: swap LLM backend for zero API cost ──────────────────────────────
+# For local Ollama (llama3, mistral, etc.):
+#   pip install langchain-ollama
+#   Then set IMPORTER_LLM_MODEL=ollama/llama3 and update config.py to use ChatOllama
+#
+# For Groq free tier (fast inference):
+#   pip install langchain-groq
+#   Then set GROQ_API_KEY and update config.py to use ChatGroq
