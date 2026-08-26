@@ -10,6 +10,7 @@ import InspectionDetailPage from './pages/InspectionDetailPage'
 import ProfilePage from './pages/ProfilePage'
 import LandingPage from './pages/LandingPage'
 import RawObservationPage from './pages/RawObservationPage'
+import ReportPage from './pages/ReportPage'
 import ListPage from './pages/ListPage'
 import { RequireAuth } from './components/RequireAuth'
 
@@ -27,6 +28,7 @@ function App() {
       <Route path="/inspections/:id/capture" element={<RequireAuth><CapturePage /></RequireAuth>} />
       <Route path="/review/:id" element={<RequireAuth><ReviewPage /></RequireAuth>} />
       <Route path="/observations/:id/raw" element={<RequireAuth><RawObservationPage /></RequireAuth>} />
+      <Route path="/inspections/:id/report" element={<RequireAuth><ReportPage /></RequireAuth>} />
       <Route path="/list" element={<RequireAuth><ListPage /></RequireAuth>} />
     </Routes>
   )

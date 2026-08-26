@@ -956,6 +956,24 @@ def delete_observation(observation_id: str, session: Session = Depends(get_sessi
     session.commit()
 
 
+@app.get("/inspections/{inspection_id}/report.html")
+def get_report_html(
+    inspection_id: int,
+    inspector: Inspector = Depends(get_current_inspector),
+    session: Session = Depends(get_session),
+):
+    inspection = session.get(Inspection, inspection_id)
+    if not inspection or inspection.inspector_id != inspector.id:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    try:
+        context = build_report_context(inspection_id, inspector, session)
+        html_str = render_report_html(context)
+        return Response(content=html_str, media_type="text/html")
+    except Exception:
+        logging.error("Report HTML generation failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to generate report.")
+
+
 @app.get("/inspections/{inspection_id}/report.pdf")
 def get_report(
     inspection_id: int,
