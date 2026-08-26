@@ -189,6 +189,7 @@ class Audio(SQLModel, table=True):
     data: bytes
     duration_seconds: Optional[float] = None
     waveform_bars: Optional[str] = None
+    transcript: Optional[str] = None
 
 
 class NotInspectedPhoto(SQLModel, table=True):

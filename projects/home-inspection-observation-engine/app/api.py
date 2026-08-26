@@ -34,6 +34,14 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    from sqlalchemy import text
+    from app.database import engine
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE audio ADD COLUMN transcript TEXT"))
+            conn.commit()
+        except Exception:
+            pass
 
 
 def _inspection_out(inspection: Inspection) -> dict:
@@ -187,6 +195,191 @@ def create_raw_observation(
         raise HTTPException(status_code=500, detail="Failed to save observation. Please try again.")
 
 
+@app.patch("/observations/{observation_id}/raw", response_model=StructuredObservation)
+def patch_raw_observation(
+    observation_id: str,
+    text_description: str = Form(...),
+    session: Session = Depends(get_session)):
+    try:
+        observation = session.exec(
+            select(StructuredObservation).where(StructuredObservation.observation_id == observation_id)
+        ).first()
+        if not observation:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        if observation.status != ObservationStatus.RAW:
+            raise HTTPException(status_code=400, detail="Can only edit observations that are still in the queue")
+        observation.text_description = text_description
+        session.add(observation)
+        session.commit()
+        session.refresh(observation)
+        return observation
+    except HTTPException:
+        raise
+    except Exception:
+        logging.error("Raw observation patch failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to update observation. Please try again.")
+
+
+@app.post("/observations/{observation_id}/photos", response_model=StructuredObservation)
+def add_observation_photos(
+    observation_id: str,
+    photos: List[UploadFile] = File(...),
+    session: Session = Depends(get_session)):
+    try:
+        observation = session.exec(
+            select(StructuredObservation).where(StructuredObservation.observation_id == observation_id)
+        ).first()
+        if not observation:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        if observation.status != ObservationStatus.RAW:
+            raise HTTPException(status_code=400, detail="Can only edit observations that are still in the queue")
+        new_rows = []
+        for photo in photos:
+            new_rows.append(Photo(
+                observation_id=observation_id,
+                filename=photo.filename or "photo.jpg",
+                content_type=photo.content_type or "image/jpeg",
+                data=photo.file.read()
+            ))
+        for row in new_rows:
+            session.add(row)
+        session.flush()
+        observation.photo_ids = (observation.photo_ids or []) + [r.id for r in new_rows]
+        session.add(observation)
+        session.commit()
+        session.refresh(observation)
+        return observation
+    except HTTPException:
+        raise
+    except Exception:
+        logging.error("Add photos failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to add photos. Please try again.")
+
+
+@app.delete("/observations/{observation_id}/photos/{photo_id}", response_model=StructuredObservation)
+def delete_observation_photo(
+    observation_id: str,
+    photo_id: int,
+    session: Session = Depends(get_session)):
+    try:
+        observation = session.exec(
+            select(StructuredObservation).where(StructuredObservation.observation_id == observation_id)
+        ).first()
+        if not observation:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        if observation.status != ObservationStatus.RAW:
+            raise HTTPException(status_code=400, detail="Can only edit observations that are still in the queue")
+        photo = session.get(Photo, photo_id)
+        if photo and photo.observation_id == observation_id:
+            session.delete(photo)
+        observation.photo_ids = [pid for pid in (observation.photo_ids or []) if pid != photo_id]
+        session.add(observation)
+        session.commit()
+        session.refresh(observation)
+        return observation
+    except HTTPException:
+        raise
+    except Exception:
+        logging.error("Delete photo failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to delete photo. Please try again.")
+
+
+@app.get("/observations/{observation_id}/audios")
+def list_observation_audios(observation_id: str, session: Session = Depends(get_session)):
+    audios = session.exec(select(Audio).where(Audio.observation_id == observation_id)).all()
+    return [{"id": a.id, "duration_seconds": a.duration_seconds} for a in audios]
+
+
+@app.get("/observations/{observation_id}/audio/{audio_id}")
+def get_observation_audio_by_id(observation_id: str, audio_id: int, session: Session = Depends(get_session)):
+    audio = session.get(Audio, audio_id)
+    if not audio or audio.observation_id != observation_id:
+        raise HTTPException(status_code=404, detail="Audio not found")
+    return Response(content=audio.data, media_type=audio.content_type,
+                    headers={"Content-Disposition": f"inline; filename=\"{audio.filename}\""})
+
+
+@app.post("/observations/{observation_id}/audio")
+def add_observation_audio(
+    observation_id: str,
+    audio_file: UploadFile = File(...),
+    audio_duration: Optional[float] = Form(default=None),
+    session: Session = Depends(get_session)):
+    tmp_path = None
+    try:
+        observation = session.exec(
+            select(StructuredObservation).where(StructuredObservation.observation_id == observation_id)
+        ).first()
+        if not observation:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        if observation.status != ObservationStatus.RAW:
+            raise HTTPException(status_code=400, detail="Can only edit observations that are still in the queue")
+        audio_bytes = audio_file.file.read()
+        suffix = os.path.splitext(audio_file.filename or "recording.webm")[1] or ".webm"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+        transcript = None
+        try:
+            transcript = transcribe_audio(tmp_path)
+        except Exception:
+            logging.warning("Transcription failed for additional audio clip")
+        new_audio = Audio(
+            observation_id=observation_id,
+            filename=audio_file.filename or "recording.webm",
+            content_type=audio_file.content_type or "audio/webm",
+            data=audio_bytes,
+            duration_seconds=audio_duration,
+            transcript=transcript,
+        )
+        session.add(new_audio)
+        session.commit()
+        session.refresh(new_audio)
+        return {"id": new_audio.id, "duration_seconds": new_audio.duration_seconds}
+    except HTTPException:
+        raise
+    except Exception:
+        logging.error("Add audio failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to add audio. Please try again.")
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+
+@app.delete("/observations/{observation_id}/audio/{audio_id}")
+def delete_observation_audio(
+    observation_id: str,
+    audio_id: int,
+    session: Session = Depends(get_session)):
+    try:
+        observation = session.exec(
+            select(StructuredObservation).where(StructuredObservation.observation_id == observation_id)
+        ).first()
+        if not observation:
+            raise HTTPException(status_code=404, detail="Observation not found")
+        if observation.status != ObservationStatus.RAW:
+            raise HTTPException(status_code=400, detail="Can only edit observations that are still in the queue")
+        audio = session.get(Audio, audio_id)
+        if not audio or audio.observation_id != observation_id:
+            raise HTTPException(status_code=404, detail="Audio not found")
+        is_original = audio.transcript is None
+        session.delete(audio)
+        if is_original:
+            observation.audio_transcript = None
+            session.add(observation)
+        session.commit()
+        remaining = session.exec(select(Audio).where(Audio.observation_id == observation_id)).all()
+        return {"deleted_id": audio_id, "remaining_ids": [a.id for a in remaining]}
+    except HTTPException:
+        raise
+    except Exception:
+        logging.error("Delete audio failed:\n%s", traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Failed to delete audio. Please try again.")
+
+
 @app.post("/observations/not-inspected", response_model=NotInspectedObservation)
 def create_not_inspected_observation(
     not_inspected_id: str,
@@ -331,9 +524,13 @@ def process_observation(observation_id: str, session: Session = Depends(get_sess
             image_descriptions.append(analyze_image(tmp_paths[-1]))
         t_image_ms = round((time.perf_counter() - t_image_start) * 1000)
 
+        audio_rows = session.exec(select(Audio).where(Audio.observation_id == observation_id)).all()
+        audio_parts = [t for t in [observation.audio_transcript] + [a.transcript for a in audio_rows] if t]
+        combined_transcript = "\n\n".join(audio_parts) if audio_parts else None
+
         observation_input = ObservationInput(
             text_description=observation.text_description,
-            audio_transcript=observation.audio_transcript,
+            audio_transcript=combined_transcript,
             photo_ids=[p.filename for p in photo_rows],
             image_descriptions=image_descriptions
         )

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, RefObject } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { API_URL } from '../api'
 import Header from '../components/Header'
@@ -12,6 +12,8 @@ type RawObs = {
   photo_ids: number[] | null
   inspection_id: number | null
 }
+
+type AudioClipMeta = { id: number; duration_seconds: number | null }
 
 export default function RawObservationPage() {
   const { id } = useParams<{ id: string }>()
@@ -29,14 +31,21 @@ export default function RawObservationPage() {
   const [isDragging, setIsDragging] = useState(false)
   const [failedPhotos, setFailedPhotos] = useState<Set<number>>(new Set())
   const [photoFullscreen, setPhotoFullscreen] = useState(false)
+  const [deletingPhoto, setDeletingPhoto] = useState<number | null>(null)
+  const [addingPhoto, setAddingPhoto] = useState(false)
+  const addPhotoInputRef = useRef<HTMLInputElement>(null)
 
-  // Audio player
-  const [audioUrl, setAudioUrl] = useState<string | null>(null)
-  const [waveformBars, setWaveformBars] = useState<number[]>([])
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [playbackProgress, setPlaybackProgress] = useState(0)
-  const [audioLoading, setAudioLoading] = useState(false)
-  const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Audio
+  const [audioClips, setAudioClips] = useState<AudioClipMeta[]>([])
+  const [audioListLoading, setAudioListLoading] = useState(true)
+  const [addingAudio, setAddingAudio] = useState(false)
+  const addAudioInputRef = useRef<HTMLInputElement>(null)
+
+  // Text editing
+  const [editText, setEditText] = useState('')
+  const [textDirty, setTextDirty] = useState(false)
+  const [textSaving, setTextSaving] = useState(false)
+  const [textSaved, setTextSaved] = useState(false)
 
   // Actions
   const [isProcessing, setIsProcessing] = useState(false)
@@ -50,62 +59,23 @@ export default function RawObservationPage() {
     if (!id) return
     fetch(`${API_URL}/observations/${id}`)
       .then(r => r.json())
-      .then(data => { setObs(data); setLoading(false) })
+      .then(data => {
+        setObs(data)
+        setEditText(data.text_description ?? '')
+        setLoading(false)
+      })
       .catch(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
-    if (!id || !obs) return
-    setAudioLoading(true)
-    fetch(`${API_URL}/observations/${id}/audio`)
-      .then(async r => {
-        if (!r.ok) return
-        const blob = await r.blob()
-        const url = URL.createObjectURL(blob)
-        setAudioUrl(url)
-        setWaveformBars(await extractWaveform(blob))
-      })
-      .catch(() => {})
-      .finally(() => setAudioLoading(false))
-  }, [id, obs?.observation_id])
-
-  useEffect(() => {
-    return () => { if (audioUrl) URL.revokeObjectURL(audioUrl) }
-  }, [audioUrl])
-
-  async function extractWaveform(blob: Blob): Promise<number[]> {
-    try {
-      const arrayBuffer = await blob.arrayBuffer()
-      const tempCtx = new AudioContext()
-      const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer)
-      tempCtx.close()
-      const data = audioBuffer.getChannelData(0)
-      const BAR_COUNT = 40
-      const step = Math.floor(data.length / BAR_COUNT)
-      const peaks = Array.from({ length: BAR_COUNT }, (_, i) => {
-        const chunk = data.slice(i * step, (i + 1) * step)
-        return Math.sqrt(chunk.reduce((s, v) => s + v * v, 0) / chunk.length)
-      })
-      const max = Math.max(...peaks, 0.001)
-      return peaks.map(v => v / max)
-    } catch {
-      return Array(40).fill(0.15)
-    }
-  }
-
-  function togglePlayback() {
-    const player = audioRef.current
-    if (!player) return
-    if (isPlaying) { player.pause(); setIsPlaying(false) }
-    else { player.play().catch(() => {}); setIsPlaying(true) }
-  }
-
-  function seekToFraction(fraction: number) {
-    const player = audioRef.current
-    if (!player || !player.duration) return
-    player.currentTime = Math.max(0, Math.min(1, fraction)) * player.duration
-    setPlaybackProgress(Math.max(0, Math.min(1, fraction)))
-  }
+    if (!id) return
+    setAudioListLoading(true)
+    fetch(`${API_URL}/observations/${id}/audios`)
+      .then(r => r.ok ? r.json() : [])
+      .then(clips => setAudioClips(clips))
+      .catch(() => setAudioClips([]))
+      .finally(() => setAudioListLoading(false))
+  }, [id])
 
   function handleCarouselTouchStart(e: React.TouchEvent) {
     setTouchStartX(e.touches[0].clientX)
@@ -118,13 +88,102 @@ export default function RawObservationPage() {
   }
 
   function handleCarouselTouchEnd() {
-    if (obs?.photo_ids && Math.abs(dragDelta) > 50) {
-      if (dragDelta < 0 && activePhotoIndex < obs.photo_ids.length - 1) setActivePhotoIndex(p => p + 1)
+    const photos = obs?.photo_ids ?? []
+    if (Math.abs(dragDelta) > 50) {
+      if (dragDelta < 0 && activePhotoIndex < photos.length - 1) setActivePhotoIndex(p => p + 1)
       else if (dragDelta > 0 && activePhotoIndex > 0) setActivePhotoIndex(p => p - 1)
     }
     setDragDelta(0)
     setIsDragging(false)
     setTouchStartX(null)
+  }
+
+  async function handleSaveText() {
+    if (!id || !textDirty) return
+    setTextSaving(true)
+    try {
+      const form = new FormData()
+      form.append('text_description', editText)
+      const res = await fetch(`${API_URL}/observations/${id}/raw`, { method: 'PATCH', body: form })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setObs(updated)
+      setTextDirty(false)
+      setTextSaved(true)
+      setTimeout(() => setTextSaved(false), 2000)
+    } catch {
+      setError('Failed to save note. Please try again.')
+    } finally {
+      setTextSaving(false)
+    }
+  }
+
+  async function handleDeletePhoto(photoId: number) {
+    if (!id) return
+    setDeletingPhoto(photoId)
+    try {
+      const res = await fetch(`${API_URL}/observations/${id}/photos/${photoId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setObs(updated)
+      setActivePhotoIndex(i => Math.max(0, i - 1))
+    } catch {
+      setError('Failed to delete photo. Please try again.')
+    } finally {
+      setDeletingPhoto(null)
+    }
+  }
+
+  async function handleAddPhotos(files: FileList) {
+    if (!id || !files.length) return
+    setAddingPhoto(true)
+    try {
+      const form = new FormData()
+      for (const f of Array.from(files)) form.append('photos', f)
+      const res = await fetch(`${API_URL}/observations/${id}/photos`, { method: 'POST', body: form })
+      if (!res.ok) throw new Error()
+      const updated = await res.json()
+      setObs(updated)
+      setActivePhotoIndex((updated.photo_ids?.length ?? 1) - 1)
+    } catch {
+      setError('Failed to add photo. Please try again.')
+    } finally {
+      setAddingPhoto(false)
+      if (addPhotoInputRef.current) addPhotoInputRef.current.value = ''
+    }
+  }
+
+  async function handleDeleteAudio(audioId: number) {
+    if (!id) return
+    try {
+      const res = await fetch(`${API_URL}/observations/${id}/audio/${audioId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setAudioClips(prev => prev.filter(c => c.id !== audioId))
+      if (data.deleted_id === audioId) {
+        setObs(prev => prev ? { ...prev, audio_transcript: data.remaining_ids.length ? prev.audio_transcript : null } : prev)
+      }
+    } catch {
+      setError('Failed to delete audio. Please try again.')
+    }
+  }
+
+  async function handleAddAudio(file: File) {
+    if (!id) return
+    setAddingAudio(true)
+    try {
+      const form = new FormData()
+      form.append('audio_file', file)
+      const res = await fetch(`${API_URL}/observations/${id}/audio`, { method: 'POST', body: form })
+      if (!res.ok) throw new Error()
+      const newClip = await res.json()
+      setAudioClips(prev => [...prev, { id: newClip.id, duration_seconds: newClip.duration_seconds }])
+    } catch {
+      setError('Failed to add audio. Please try again.')
+    } finally {
+      setAddingAudio(false)
+      if (addAudioInputRef.current) addAudioInputRef.current.value = ''
+    }
   }
 
   async function handleProcessNow() {
@@ -158,7 +217,7 @@ export default function RawObservationPage() {
     return (
       <ProcessOverlay
         isComplete={processComplete}
-        hasAudio={!!audioUrl}
+        hasAudio={audioClips.length > 0 || !!obs?.audio_transcript}
         photoCount={obs?.photo_ids?.length ?? 1}
       />
     )
@@ -187,6 +246,7 @@ export default function RawObservationPage() {
   }
 
   const photos = obs.photo_ids ?? []
+  const totalSlots = photos.length + 1 // +1 for the "Add Photo" slot
 
   return (
     <div className="min-h-screen bg-offwhite">
@@ -230,138 +290,175 @@ export default function RawObservationPage() {
 
         <div className="mb-5">
           <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">Queued Observation</h1>
-          <p className="text-sm text-slate-400 mt-1">Pending AI analysis — your captured evidence is below.</p>
+          <p className="text-sm text-slate-400 mt-1">Pending AI analysis — edit anything below before processing.</p>
         </div>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 rounded-2xl px-4 py-3 mb-5 text-base">{error}</div>
         )}
 
-        {/* Photo carousel */}
-        {photos.length > 0 && (
-          <div className="mb-4">
-            <div className="rounded-2xl overflow-hidden relative" style={{ aspectRatio: '4/3' }} onTouchStart={handleCarouselTouchStart} onTouchMove={handleCarouselTouchMove} onTouchEnd={handleCarouselTouchEnd}>
-              {photos.map((photoId, i) => (
-                <div key={photoId} className="absolute inset-0" style={{ transform: `translateX(calc(${(i - activePhotoIndex) * 100}% + ${dragDelta}px))`, transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
-                  {!failedPhotos.has(photoId) ? (
-                    <img src={`${API_URL}/observations/${obs.observation_id}/photos/${photoId}`} alt={`Photo ${i + 1}`} className="w-full h-full object-cover cursor-pointer active:opacity-90" onClick={() => setPhotoFullscreen(true)} onError={() => setFailedPhotos(prev => new Set(prev).add(photoId))} />
-                  ) : (
-                    <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center gap-2">
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
-                      </svg>
-                      <p className="text-slate-400 text-sm">Photo unavailable</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 pb-3 pt-8 cursor-pointer" onClick={() => setPhotoFullscreen(true)}>
-                {photos.length > 1 && (
-                  <div className="flex justify-center gap-2 mb-2">
-                    {photos.map((_, i) => (
-                      <button key={i} onClick={(e) => { e.stopPropagation(); setActivePhotoIndex(i) }} className="rounded-full transition-all duration-200" style={{ width: i === activePhotoIndex ? '20px' : '8px', height: '8px', backgroundColor: i === activePhotoIndex ? 'white' : 'rgba(255,255,255,0.45)' }} />
-                    ))}
+        {/* Photos */}
+        <div className="mb-4">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Photos</p>
+          <div className="rounded-2xl overflow-hidden relative" style={{ aspectRatio: '4/3' }} onTouchStart={handleCarouselTouchStart} onTouchMove={handleCarouselTouchMove} onTouchEnd={handleCarouselTouchEnd}>
+            {/* Photo slides */}
+            {photos.map((photoId, i) => (
+              <div key={photoId} className="absolute inset-0" style={{ transform: `translateX(calc(${(i - activePhotoIndex) * 100}% + ${dragDelta}px))`, transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}>
+                {!failedPhotos.has(photoId) ? (
+                  <img
+                    src={`${API_URL}/observations/${obs.observation_id}/photos/${photoId}`}
+                    alt={`Photo ${i + 1}`}
+                    className="w-full h-full object-cover cursor-pointer active:opacity-90"
+                    onClick={() => setPhotoFullscreen(true)}
+                    onError={() => setFailedPhotos(prev => new Set(prev).add(photoId))}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-slate-100 flex flex-col items-center justify-center gap-2">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                    </svg>
+                    <p className="text-slate-400 text-sm">Photo unavailable</p>
                   </div>
                 )}
-                <div className="flex items-center gap-2">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-                  </svg>
-                  <span className="text-white text-sm font-semibold">
-                    {photos.length > 1 ? `Photo ${activePhotoIndex + 1} of ${photos.length} · Tap to expand` : 'Tap to view full screen'}
-                  </span>
-                </div>
+                {/* Delete X button */}
+                <button
+                  onClick={e => { e.stopPropagation(); handleDeletePhoto(photoId) }}
+                  disabled={deletingPhoto === photoId}
+                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 flex items-center justify-center transition-colors"
+                >
+                  {deletingPhoto === photoId ? (
+                    <div className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                  ) : (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  )}
+                </button>
+              </div>
+            ))}
+
+            {/* Add Photo slot */}
+            <div
+              className="absolute inset-0 bg-slate-50 flex flex-col items-center justify-center gap-3 cursor-pointer hover:bg-slate-100 transition-colors border-2 border-dashed border-slate-200"
+              style={{ transform: `translateX(calc(${(photos.length - activePhotoIndex) * 100}% + ${dragDelta}px))`, transition: isDragging ? 'none' : 'transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94)' }}
+              onClick={() => addPhotoInputRef.current?.click()}
+            >
+              {addingPhoto ? (
+                <div className="w-8 h-8 rounded-full border-[2.5px] border-blue-600 border-t-transparent animate-spin" />
+              ) : (
+                <>
+                  <div className="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>
+                    </svg>
+                  </div>
+                  <p className="text-sm font-bold text-blue-600">Add Photo</p>
+                  <p className="text-xs text-slate-400">Camera or photo library</p>
+                </>
+              )}
+            </div>
+
+            {/* Dot indicators */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent px-4 pb-3 pt-6 pointer-events-none">
+              <div className="flex justify-center gap-2">
+                {Array.from({ length: totalSlots }).map((_, i) => (
+                  <button
+                    key={i}
+                    className="rounded-full transition-all duration-200 pointer-events-auto"
+                    style={{ width: i === activePhotoIndex ? '20px' : '8px', height: '8px', backgroundColor: i === activePhotoIndex ? 'white' : 'rgba(255,255,255,0.45)' }}
+                    onClick={e => { e.stopPropagation(); setActivePhotoIndex(i) }}
+                  />
+                ))}
               </div>
             </div>
           </div>
-        )}
+        </div>
 
-        {/* Text description */}
-        {obs.text_description && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Inspector Note</p>
-            <p className="text-base text-slate-800 leading-relaxed">{obs.text_description}</p>
+        <input
+          ref={addPhotoInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          className="hidden"
+          onChange={e => { if (e.target.files?.length) handleAddPhotos(e.target.files) }}
+        />
+
+        {/* Notes */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Inspector Note</p>
+            {textSaving && <span className="text-xs text-slate-400">Saving…</span>}
+            {textSaved && !textSaving && <span className="text-xs text-green-600 font-semibold">Saved</span>}
+            {textDirty && !textSaving && !textSaved && (
+              <button onClick={handleSaveText} className="text-xs font-bold text-blue-600 hover:text-blue-500">Save</button>
+            )}
           </div>
-        )}
+          <textarea
+            value={editText}
+            onChange={e => { setEditText(e.target.value); setTextDirty(e.target.value !== (obs.text_description ?? '')) }}
+            onBlur={handleSaveText}
+            rows={4}
+            className="w-full text-base text-slate-800 leading-relaxed resize-none focus:outline-none bg-transparent placeholder:text-slate-300"
+            placeholder="Add inspection notes…"
+          />
+        </div>
 
-        {/* Audio player */}
-        {audioUrl && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Audio Recording</p>
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              onEnded={() => { setIsPlaying(false); setPlaybackProgress(1) }}
-              onTimeUpdate={(e) => {
-                const a = e.currentTarget
-                if (a.duration) setPlaybackProgress(a.currentTime / a.duration)
-              }}
+        {/* Audio clips */}
+        <div className="mb-4">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Audio Recordings</p>
+          <div className="flex flex-col gap-3">
+            {audioListLoading ? (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin shrink-0" />
+                <p className="text-sm text-slate-400">Loading recordings…</p>
+              </div>
+            ) : audioClips.length === 0 && !obs.audio_transcript ? (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 text-center text-slate-400 text-sm">
+                No audio recordings
+              </div>
+            ) : (
+              audioClips.map((clip, i) => (
+                <AudioClipCard
+                  key={clip.id}
+                  clipId={clip.id}
+                  observationId={obs.observation_id}
+                  label={audioClips.length > 1 ? `Recording ${i + 1}` : 'Recording'}
+                  onDelete={handleDeleteAudio}
+                />
+              ))
+            )}
+
+            {/* Add Audio */}
+            <input
+              ref={addAudioInputRef}
+              type="file"
+              accept="audio/*"
+              capture="microphone"
               className="hidden"
+              onChange={e => { if (e.target.files?.[0]) handleAddAudio(e.target.files[0]) }}
             />
-            {/* Waveform */}
-            <div
-              className="relative flex items-center gap-[2px] w-full cursor-pointer select-none mb-4"
-              style={{ height: '56px' }}
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect()
-                seekToFraction((e.clientX - rect.left) / rect.width)
-              }}
-              onTouchMove={(e) => {
-                e.preventDefault()
-                const rect = e.currentTarget.getBoundingClientRect()
-                seekToFraction((e.touches[0].clientX - rect.left) / rect.width)
-              }}
+            <button
+              onClick={() => addAudioInputRef.current?.click()}
+              disabled={addingAudio}
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-dashed border-slate-200 text-slate-500 font-semibold text-sm hover:border-blue-300 hover:text-blue-600 transition-colors disabled:opacity-50"
             >
-              {waveformBars.map((h, i) => {
-                const isPast = (i / waveformBars.length) < playbackProgress
-                return (
-                  <div
-                    key={i}
-                    className="rounded-full flex-1 transition-colors duration-75"
-                    style={{
-                      height: `${Math.max(3, h * 52)}px`,
-                      backgroundColor: isPast ? '#2563EB' : '#bfdbfe',
-                      opacity: isPast ? (0.5 + h * 0.5) : (0.4 + h * 0.4),
-                    }}
-                  />
-                )
-              })}
-              <div className="absolute top-0 bottom-0 w-0.5 rounded-full pointer-events-none" style={{ left: `${playbackProgress * 100}%`, backgroundColor: '#1d4ed8' }} />
-            </div>
-            {/* Controls */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={togglePlayback}
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm active:scale-95 transition-all"
-                style={{ backgroundColor: '#2563EB' }}
-              >
-                {isPlaying ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
-                )}
-              </button>
-              <span className="text-sm text-slate-500 font-medium">
-                {isPlaying ? 'Playing...' : 'Tap to play'}
-              </span>
-            </div>
+              {addingAudio ? (
+                <>
+                  <div className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  Transcribing…
+                </>
+              ) : (
+                <>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+                  Add Another Recording
+                </>
+              )}
+            </button>
           </div>
-        )}
-
-        {audioLoading && !audioUrl && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4 flex items-center gap-3">
-            <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin shrink-0" />
-            <p className="text-sm text-slate-400">Loading audio...</p>
-          </div>
-        )}
-
-        {/* If only audio_transcript (no file), show it */}
-        {!audioUrl && !audioLoading && obs.audio_transcript && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Audio Transcript</p>
-            <p className="text-base text-slate-800 leading-relaxed italic">"{obs.audio_transcript}"</p>
-          </div>
-        )}
+        </div>
 
       </div>
 
@@ -384,6 +481,162 @@ export default function RawObservationPage() {
             {isDeleting ? 'Deleting...' : 'Delete Observation'}
           </button>
         </div>
+      </div>
+    </div>
+  )
+}
+
+async function extractWaveform(blob: Blob): Promise<number[]> {
+  try {
+    const arrayBuffer = await blob.arrayBuffer()
+    const tempCtx = new AudioContext()
+    const audioBuffer = await tempCtx.decodeAudioData(arrayBuffer)
+    tempCtx.close()
+    const data = audioBuffer.getChannelData(0)
+    const BAR_COUNT = 40
+    const step = Math.floor(data.length / BAR_COUNT)
+    const peaks = Array.from({ length: BAR_COUNT }, (_, i) => {
+      const chunk = data.slice(i * step, (i + 1) * step)
+      return Math.sqrt(chunk.reduce((s, v) => s + v * v, 0) / chunk.length)
+    })
+    const max = Math.max(...peaks, 0.001)
+    return peaks.map(v => v / max)
+  } catch {
+    return Array(40).fill(0.15)
+  }
+}
+
+function AudioClipCard({ clipId, observationId, label, onDelete }: {
+  clipId: number
+  observationId: string
+  label: string
+  onDelete: (id: number) => void
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const [waveform, setWaveform] = useState<number[]>([])
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    let objectUrl: string | null = null
+    fetch(`${API_URL}/observations/${observationId}/audio/${clipId}`)
+      .then(async r => {
+        if (!r.ok) return
+        const blob = await r.blob()
+        objectUrl = URL.createObjectURL(blob)
+        setUrl(objectUrl)
+        setWaveform(await extractWaveform(blob))
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [clipId, observationId])
+
+  function togglePlayback() {
+    const player = audioRef.current
+    if (!player) return
+    if (isPlaying) { player.pause(); setIsPlaying(false) }
+    else { player.play().catch(() => {}); setIsPlaying(true) }
+  }
+
+  function seekToFraction(fraction: number) {
+    const player = audioRef.current
+    if (!player || !player.duration) return
+    player.currentTime = Math.max(0, Math.min(1, fraction)) * player.duration
+    setProgress(Math.max(0, Math.min(1, fraction)))
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    onDelete(clipId)
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-3">
+        <div className="w-5 h-5 rounded-full border-2 border-blue-600 border-t-transparent animate-spin shrink-0" />
+        <p className="text-sm text-slate-400">Loading {label.toLowerCase()}…</p>
+      </div>
+    )
+  }
+
+  if (!url) return null
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 relative">
+      {/* Delete button */}
+      <button
+        onClick={handleDelete}
+        disabled={deleting}
+        className="absolute top-3 right-3 w-7 h-7 rounded-full bg-slate-100 hover:bg-red-100 flex items-center justify-center transition-colors"
+      >
+        {deleting ? (
+          <div className="w-3 h-3 rounded-full border-2 border-slate-400 border-t-transparent animate-spin" />
+        ) : (
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="3" strokeLinecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        )}
+      </button>
+
+      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 pr-8">{label}</p>
+
+      <audio
+        ref={audioRef}
+        src={url}
+        onEnded={() => { setIsPlaying(false); setProgress(1) }}
+        onTimeUpdate={e => {
+          const a = e.currentTarget
+          if (a.duration) setProgress(a.currentTime / a.duration)
+        }}
+        className="hidden"
+      />
+
+      {/* Waveform */}
+      <div
+        className="relative flex items-center gap-[2px] w-full cursor-pointer select-none mb-4"
+        style={{ height: '56px' }}
+        onClick={e => {
+          const rect = e.currentTarget.getBoundingClientRect()
+          seekToFraction((e.clientX - rect.left) / rect.width)
+        }}
+      >
+        {waveform.map((h, i) => {
+          const isPast = (i / waveform.length) < progress
+          return (
+            <div
+              key={i}
+              className="rounded-full flex-1 transition-colors duration-75"
+              style={{
+                height: `${Math.max(3, h * 52)}px`,
+                backgroundColor: isPast ? '#2563EB' : '#bfdbfe',
+                opacity: isPast ? (0.5 + h * 0.5) : (0.4 + h * 0.4),
+              }}
+            />
+          )
+        })}
+        <div className="absolute top-0 bottom-0 w-0.5 rounded-full pointer-events-none" style={{ left: `${progress * 100}%`, backgroundColor: '#1d4ed8' }} />
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-3">
+        <button
+          onClick={togglePlayback}
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm active:scale-95 transition-all"
+          style={{ backgroundColor: '#2563EB' }}
+        >
+          {isPlaying ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+          )}
+        </button>
+        <span className="text-sm text-slate-500 font-medium">
+          {isPlaying ? 'Playing...' : 'Tap to play'}
+        </span>
       </div>
     </div>
   )
