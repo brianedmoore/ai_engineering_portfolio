@@ -7,3 +7,5 @@ __pycache__/
 observations.db
 sample_inspection_*.pdf
 sample_inspection_*.PDF
+demo_photos/
+demo_photos_raw/
